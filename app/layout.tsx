@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
 import { CookieBanner } from "@/components/layout/cookie-banner"
+import { AuthProvider } from "@/lib/auth-context"
 import "./globals.css"
 import { Suspense } from "react"
 
@@ -42,7 +43,7 @@ export const metadata: Metadata = {
     description: "Connect suppliers, influencers, and customers in one seamless commerce platform.",
     creator: "@onelink",
   },
-    generator: 'v0.app'
+  generator: "v0.app",
 }
 
 export default function RootLayout({
@@ -53,23 +54,25 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="font-sans antialiased bg-gray-50 text-gray-900 min-h-screen flex flex-col">
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-indigo-600 text-white px-4 py-2 rounded-lg z-50"
-        >
-          Skip to main content
-        </a>
+        <AuthProvider>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 bg-indigo-600 text-white px-4 py-2 rounded-lg z-50"
+          >
+            Skip to main content
+          </a>
 
-        <Suspense fallback={<div>Loading...</div>}>
-          <Header />
+          <Suspense fallback={<div>Loading...</div>}>
+            <Header />
 
-          <main id="main-content" className="flex-1">
-            {children}
-          </main>
+            <main id="main-content" className="flex-1">
+              {children}
+            </main>
 
-          <Footer />
-          <CookieBanner />
-        </Suspense>
+            <Footer />
+            <CookieBanner />
+          </Suspense>
+        </AuthProvider>
       </body>
     </html>
   )

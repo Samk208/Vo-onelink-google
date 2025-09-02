@@ -2,7 +2,23 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { X, Cookie } from "lucide-react"
+
+const XIcon = () => (
+  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+)
+
+const CookieIcon = () => (
+  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+    />
+  </svg>
+)
 
 export function CookieBanner() {
   const [isVisible, setIsVisible] = useState(false)
@@ -28,11 +44,15 @@ export function CookieBanner() {
   if (!isVisible) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t shadow-lg">
+    <div
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t shadow-lg"
+      role="banner"
+      aria-label="Cookie consent"
+    >
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-start space-x-3 flex-1">
-            <Cookie className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+            <CookieIcon />
             <div className="flex-1">
               <p className="text-sm text-gray-700">
                 We use cookies to enhance your experience, analyze site traffic, and personalize content.{" "}
@@ -51,7 +71,7 @@ export function CookieBanner() {
               Accept All
             </Button>
             <Button variant="ghost" size="sm" onClick={declineCookies} className="p-1" aria-label="Close cookie banner">
-              <X className="h-4 w-4" />
+              <XIcon />
             </Button>
           </div>
         </div>
