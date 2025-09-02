@@ -1,62 +1,66 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { UserRole, type AuthResponse } from "@/lib/types"
-
-const simulateNetworkDelay = () => new Promise((resolve) => setTimeout(resolve, Math.random() * 1000 + 500))
+import { createServerSupabaseClient } from "@/lib/supabase"
+import { signInSchema } from "@/lib/validators"
+import { createAuthErrorResponse, createAuthSuccessResponse, getUserByEmail } from "@/lib/auth-helpers"
+import { type AuthResponse } from "@/lib/types"
 
 export async function POST(request: NextRequest) {
   try {
-    await simulateNetworkDelay()
-
     const body = await request.json()
-    const { email, password } = body
-
-    if (!email || !password) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Please fill in all required fields",
-          errors: {
-            email: !email ? "Email is required" : undefined,
-            password: !password ? "Password is required" : undefined,
-          },
-        } as AuthResponse,
-        { status: 400 },
-      )
-    }
-
-    if (Math.random() < 0.1) {
-      return NextResponse.json({ ok: false, message: "Too many requests. Please try again later." } as AuthResponse, {
-        status: 429,
+    
+    // Validate input
+    const validation = signInSchema.safeParse(body)
+    if (!validation.success) {
+      const errors: Record<string, string> = {}
+      validation.error.errors.forEach((error) => {
+        errors[error.path[0] as string] = error.message
       })
-    }
-
-    if (email === "invalid@example.com" || password === "wrongpassword") {
+      
       return NextResponse.json(
-        {
-          ok: false,
-          message: "Invalid email or password. Please check your credentials and try again.",
-        } as AuthResponse,
-        { status: 401 },
+        createAuthErrorResponse("Please check your input and try again.", errors),
+        { status: 400 }
       )
     }
 
-    let role: UserRole = UserRole.CUSTOMER
-    if (email.includes("supplier")) role = UserRole.SUPPLIER
-    else if (email.includes("influencer")) role = UserRole.INFLUENCER
+    const { email, password } = validation.data
+    const supabase = createServerSupabaseClient()
 
-    return NextResponse.json({
-      ok: true,
-      role,
-      user: {
-        id: "1",
-        email,
-        name: email.split("@")[0],
-        role,
-      },
-    } as AuthResponse)
-  } catch (error) {
-    return NextResponse.json({ ok: false, message: "Something went wrong. Please try again." } as AuthResponse, {
-      status: 500,
+    // Attempt to sign in with Supabase
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     })
+
+    if (authError) {
+      // Generic error message for security
+      return NextResponse.json(
+        createAuthErrorResponse("Invalid email or password. Please check your credentials and try again."),
+        { status: 401 }
+      )
+    }
+
+    if (!authData.user) {
+      return NextResponse.json(
+        createAuthErrorResponse("Authentication failed. Please try again."),
+        { status: 401 }
+      )
+    }
+
+    // Get user profile from database
+    const user = await getUserByEmail(email)
+    if (!user) {
+      return NextResponse.json(
+        createAuthErrorResponse("User profile not found. Please contact support."),
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json(createAuthSuccessResponse(user))
+  } catch (error) {
+    console.error('Sign-in error:', error)
+    return NextResponse.json(
+      createAuthErrorResponse("Something went wrong. Please try again."),
+      { status: 500 }
+    )
   }
 }
