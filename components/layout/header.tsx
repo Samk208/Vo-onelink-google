@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -104,10 +104,24 @@ const navigation = [
   { name: "Blog", href: "/blog" },
 ]
 
+// Skeleton component for loading state
+const UserMenuSkeleton = () => (
+  <div className="hidden sm:flex items-center space-x-3">
+    <div className="h-6 w-6 rounded-full bg-gray-200 animate-pulse" />
+    <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+  </div>
+)
+
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [autoTranslate, setAutoTranslate] = useState(false)
-  const { user, signOut } = useAuth()
+  const [mounted, setMounted] = useState(false)
+  const { user, signOut, isLoading } = useAuth()
+
+  // Prevent hydration mismatch by only rendering after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const getDashboardUrl = (role: UserRole) => {
     switch (role) {
@@ -125,6 +139,79 @@ export function Header() {
   const handleSignOut = () => {
     signOut()
     setMobileMenuOpen(false)
+  }
+
+  // Don't render user-specific content until mounted to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <header className="sticky top-0 z-40 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            {/* Logo */}
+            <div className="flex items-center">
+              <Link
+                href="/"
+                className="flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-lg"
+              >
+                <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-500 flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">OL</span>
+                </div>
+                <span className="font-bold text-xl text-gray-900">One-Link</span>
+              </Link>
+            </div>
+
+            {/* Desktop Navigation */}
+            <nav className="hidden md:flex items-center space-x-8" role="navigation" aria-label="Main navigation">
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className="text-sm font-medium text-gray-700 hover:text-indigo-600 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-md px-2 py-1"
+                >
+                  {item.name}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Search Bar - Desktop */}
+            <div className="hidden lg:flex items-center flex-1 max-w-md mx-8">
+              <div className="relative w-full">
+                <SearchIcon />
+                <Input
+                  type="search"
+                  placeholder="Search products, influencers..."
+                  className="pl-10 pr-4 py-2 w-full rounded-lg border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
+                  aria-label="Search products and influencers"
+                />
+              </div>
+            </div>
+
+            {/* Right Side Actions - Skeleton */}
+            <div className="flex items-center space-x-4">
+              {/* Language Toggle Skeleton */}
+              <div className="hidden sm:flex items-center space-x-1">
+                <div className="h-8 w-16 bg-gray-200 rounded animate-pulse" />
+              </div>
+
+              {/* User Menu Skeleton */}
+              <UserMenuSkeleton />
+
+              {/* Mobile Menu Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="md:hidden"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+                aria-expanded={mobileMenuOpen}
+              >
+                {mobileMenuOpen ? <XIcon /> : <MenuIcon />}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+    )
   }
 
   return (
@@ -212,7 +299,10 @@ export function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {user ? (
+            {/* User Menu - Show skeleton while loading, then actual content */}
+            {isLoading ? (
+              <UserMenuSkeleton />
+            ) : user ? (
               /* Authenticated User Menu */
               <div className="hidden sm:flex items-center space-x-3">
                 <DropdownMenu>

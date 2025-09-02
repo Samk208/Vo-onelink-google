@@ -31,6 +31,9 @@ import {
   ChevronRight,
   Check,
   AlertTriangle,
+  Instagram,
+  Twitter,
+  Youtube,
 } from "lucide-react"
 
 // Mock data
@@ -39,13 +42,18 @@ const mockInfluencer = {
   name: "Sarah Chen",
   avatar: "/fashion-influencer-avatar.png",
   verified: true,
+  socialLinks: {
+    instagram: "https://instagram.com/sarah_style",
+    twitter: "https://twitter.com/sarah_style",
+    youtube: "https://youtube.com/@sarahstyle",
+  },
 }
 
 const mockProduct = {
   id: "1",
   title: "Sustainable Cotton Tee",
   description:
-    "Made from 100% organic cotton, this comfortable tee is perfect for everyday wear. The soft fabric feels great against your skin while being environmentally conscious.",
+    "Made from 100% organic cotton, this comfortable tee is perfect for everyday wear. The soft fabric feels great against your skin while being environmentally conscious. This sustainable choice helps reduce your environmental footprint while providing exceptional comfort and style.",
   price: 45,
   originalPrice: 60,
   images: ["/cotton-tee.png", "/cotton-tee-back.png", "/cotton-tee-detail.png", "/cotton-tee-model.png"],
@@ -195,11 +203,18 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
           <Breadcrumb className="mb-6">
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink href="/">Home</BreadcrumbLink>
+                <BreadcrumbLink href="/" className="hover:text-indigo-600">
+                  Home
+                </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbLink href={`/shop/${params.handle}`}>@{mockInfluencer.handle}</BreadcrumbLink>
+                <BreadcrumbLink 
+                  href={`/shop/${params.handle}`} 
+                  className="hover:text-indigo-600"
+                >
+                  @{mockInfluencer.handle}
+                </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
@@ -225,7 +240,7 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 p-0 bg-white/80 hover:bg-white"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 p-0 bg-white/90 hover:bg-white shadow-md"
                   onClick={prevImage}
                   aria-label="Previous image"
                 >
@@ -234,7 +249,7 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 p-0 bg-white/80 hover:bg-white"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 p-0 bg-white/90 hover:bg-white shadow-md"
                   onClick={nextImage}
                   aria-label="Next image"
                 >
@@ -242,7 +257,7 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
                 </Button>
 
                 {/* Image Counter */}
-                <div className="absolute bottom-4 right-4 bg-black/50 text-white px-3 py-1 rounded-full text-sm">
+                <div className="absolute bottom-4 right-4 bg-black/60 text-white px-3 py-1 rounded-full text-sm font-medium">
                   {selectedImageIndex + 1} / {mockProduct.images.length}
                 </div>
               </div>
@@ -282,12 +297,21 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
                     {/* Badges */}
                     <div className="flex flex-wrap gap-2 mb-4">
                       {mockProduct.badges.map((badge) => (
-                        <Badge key={badge} variant={badge === "New" ? "default" : "secondary"} className="text-sm">
+                        <Badge 
+                          key={badge} 
+                          className={`text-sm font-medium ${
+                            badge === "New" 
+                              ? "bg-indigo-600 text-white" 
+                              : badge === "Eco-Friendly"
+                              ? "bg-green-100 text-green-800 border-green-200"
+                              : "bg-amber-100 text-amber-800 border-amber-200"
+                          }`}
+                        >
                           {badge}
                         </Badge>
                       ))}
-                      {mockProduct.stockCount <= 10 && (
-                        <Badge variant="destructive" className="bg-amber-500">
+                      {mockProduct.stockCount <= 10 && mockProduct.stockCount > 0 && (
+                        <Badge className="bg-amber-500 text-white text-sm font-medium">
                           <AlertTriangle className="h-3 w-3 mr-1" />
                           Only {mockProduct.stockCount} left
                         </Badge>
@@ -306,11 +330,19 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
                         />
                         <span className="text-sm text-gray-600">
                           Curated by{" "}
-                          <Link href={`/shop/${params.handle}`} className="text-indigo-600 hover:underline">
+                          <Link 
+                            href={`/shop/${params.handle}`} 
+                            className="text-indigo-600 hover:underline font-medium"
+                          >
                             @{mockInfluencer.handle}
                           </Link>
                         </span>
-                        {mockInfluencer.verified && <Shield className="h-4 w-4 text-indigo-600" />}
+                        {mockInfluencer.verified && (
+                          <Badge variant="outline" className="text-xs border-indigo-200 text-indigo-700">
+                            <Shield className="h-3 w-3 mr-1" />
+                            Verified
+                          </Badge>
+                        )}
                       </div>
                       <Separator orientation="vertical" className="h-4" />
                       <div className="flex items-center gap-2">
@@ -348,11 +380,19 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
                       variant="outline"
                       size="sm"
                       onClick={() => setIsWishlisted(!isWishlisted)}
-                      className={isWishlisted ? "text-red-600 border-red-200" : ""}
+                      className={`border-gray-200 hover:bg-gray-50 ${
+                        isWishlisted ? "text-red-600 border-red-200 bg-red-50" : ""
+                      }`}
+                      aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
                     >
                       <Heart className={`h-4 w-4 ${isWishlisted ? "fill-current" : ""}`} />
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="border-gray-200 hover:bg-gray-50"
+                      aria-label="Share product"
+                    >
                       <Share2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -365,7 +405,7 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
                     <span className="text-xl text-gray-500 line-through">${mockProduct.originalPrice}</span>
                   )}
                   {mockProduct.originalPrice && (
-                    <Badge variant="destructive" className="bg-green-600">
+                    <Badge className="bg-green-600 text-white text-sm font-medium">
                       Save ${mockProduct.originalPrice - mockProduct.price}
                     </Badge>
                   )}
@@ -381,7 +421,7 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
               </div>
 
               {/* Quantity & Add to Cart */}
-              <Card className="p-6">
+              <Card className="p-6 border-0 shadow-lg">
                 <div className="space-y-4">
                   {/* Quantity Selector */}
                   <div className="flex items-center gap-4">
@@ -392,7 +432,7 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
                         size="sm"
                         onClick={() => handleQuantityChange(-1)}
                         disabled={quantity <= 1}
-                        className="h-10 w-10 p-0"
+                        className="h-10 w-10 p-0 hover:bg-gray-100"
                         aria-label="Decrease quantity"
                       >
                         <Minus className="h-4 w-4" />
@@ -403,7 +443,7 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
                         size="sm"
                         onClick={() => handleQuantityChange(1)}
                         disabled={quantity >= mockProduct.stockCount}
-                        className="h-10 w-10 p-0"
+                        className="h-10 w-10 p-0 hover:bg-gray-100"
                         aria-label="Increase quantity"
                       >
                         <Plus className="h-4 w-4" />
@@ -415,7 +455,7 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
                   {/* Add to Cart Button */}
                   <Button
                     size="lg"
-                    className="w-full bg-indigo-600 hover:bg-indigo-700"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
                     onClick={handleAddToCart}
                     disabled={!mockProduct.inStock}
                   >
@@ -464,22 +504,28 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
           {/* Product Details Tabs */}
           <div className="mt-12">
             <Tabs defaultValue="description" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="description">Description</TabsTrigger>
-                <TabsTrigger value="specifications">Specifications</TabsTrigger>
-                <TabsTrigger value="shipping">Shipping & Returns</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-3 bg-white shadow-sm">
+                <TabsTrigger value="description" className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
+                  Description
+                </TabsTrigger>
+                <TabsTrigger value="specifications" className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
+                  Specifications
+                </TabsTrigger>
+                <TabsTrigger value="shipping" className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-700">
+                  Shipping & Returns
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="description" className="mt-6">
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Product Description</h3>
+                <Card className="p-6 border-0 shadow-sm">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">Product Description</h3>
                   <p className="text-gray-700 leading-relaxed">{mockProduct.description}</p>
                 </Card>
               </TabsContent>
 
               <TabsContent value="specifications" className="mt-6">
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Specifications</h3>
+                <Card className="p-6 border-0 shadow-sm">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">Specifications</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {Object.entries(mockProduct.specifications).map(([key, value]) => (
                       <div key={key} className="flex justify-between py-2 border-b border-gray-100">
@@ -492,8 +538,8 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
               </TabsContent>
 
               <TabsContent value="shipping" className="mt-6">
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Shipping & Returns</h3>
+                <Card className="p-6 border-0 shadow-sm">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">Shipping & Returns</h3>
                   <div className="space-y-4">
                     <div className="flex items-start gap-3">
                       <Truck className="h-5 w-5 text-green-600 mt-0.5" />
@@ -543,7 +589,10 @@ export default function ProductDetailClient({ params }: ProductDetailClientProps
                   </div>
                   <CardContent className="p-4">
                     <h3 className="font-medium text-gray-900 line-clamp-2 mb-2">
-                      <Link href={`/shop/${params.handle}/product/${product.id}`} className="hover:text-indigo-600">
+                      <Link 
+                        href={`/shop/${params.handle}/product/${product.id}`} 
+                        className="hover:text-indigo-600 transition-colors duration-200"
+                      >
                         {product.title}
                       </Link>
                     </h3>
