@@ -86,7 +86,7 @@ export default function HomePage() {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Button size="lg" className="bg-indigo-600 hover:bg-indigo-700 text-lg px-8 py-3" asChild>
-                <Link href="/signup">
+                <Link href="/sign-up">
                   Get Started Free
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
@@ -213,7 +213,7 @@ export default function HomePage() {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" className="bg-white text-indigo-600 hover:bg-gray-50 text-lg px-8 py-3" asChild>
-                <Link href="/signup">
+                <Link href="/sign-up">
                   Start Your Journey
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
