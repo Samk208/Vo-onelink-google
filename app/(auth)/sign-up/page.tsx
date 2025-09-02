@@ -142,6 +142,7 @@ export default function SignUpPage() {
 
       toast({
         title: "Account created successfully!",
+<<<<<<< HEAD
         description: "Welcome to One-Link! You can now start exploring.",
       })
 
@@ -151,6 +152,15 @@ export default function SignUpPage() {
           : result.role === "influencer"
             ? "/dashboard/influencer"
             : "/shop/example-handle"
+=======
+        description: "Welcome to One-Link! Let's set up your profile.",
+      })
+
+      const redirectPath =
+        result.role === "customer"
+          ? "/shop/example-handle"
+          : `/auth/onboarding?role=${result.role === "supplier" ? "brand" : result.role}`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 
       router.push(redirectPath)
     } catch (err) {
@@ -289,7 +299,11 @@ export default function SignUpPage() {
                                 <RadioGroupItem value={option.value} id={option.value} className="mt-1" />
                                 <Label
                                   htmlFor={option.value}
+<<<<<<< HEAD
                                   className="flex-1 cursor-pointer p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors focus-within:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+=======
+                                  className="flex-1 cursor-pointer p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2"
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
                                 >
                                   <div className="flex items-start space-x-3">
                                     <Icon />

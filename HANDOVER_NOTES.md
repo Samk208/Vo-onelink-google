@@ -36,13 +36,21 @@ One-Link is a modern influencer commerce platform built with Next.js 15, Tailwin
 ## User Roles & Authentication
 
 ### User Types (lib/types.ts)
+<<<<<<< HEAD
 ```typescript
+=======
+\`\`\`typescript
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 export enum UserRole {
   SUPPLIER = 'supplier',
   INFLUENCER = 'influencer', 
   CUSTOMER = 'customer'
 }
+<<<<<<< HEAD
 ```
+=======
+\`\`\`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 
 ### Auth Flow
 - **Routes**: `/sign-in`, `/sign-up`, `/reset`
@@ -54,7 +62,11 @@ export enum UserRole {
 ## Page Structure & Routes
 
 ### Public Routes
+<<<<<<< HEAD
 ```
+=======
+\`\`\`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 /                           - Homepage with hero, features, testimonials
 /shop/[handle]              - Public influencer shop
 /shop/[handle]/product/[id] - Product detail page
@@ -63,6 +75,7 @@ export enum UserRole {
 /order/success              - Order confirmation
 /terms                      - Terms of service
 /privacy                    - Privacy policy
+<<<<<<< HEAD
 ```
 
 ### Auth Routes
@@ -74,6 +87,19 @@ export enum UserRole {
 
 ### Dashboard Routes
 ```
+=======
+\`\`\`
+
+### Auth Routes
+\`\`\`
+/sign-in                    - Email/password + social login
+/sign-up                    - Role selection + registration
+/reset                      - Password reset
+\`\`\`
+
+### Dashboard Routes
+\`\`\`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 /dashboard/supplier/        - Supplier overview
 /dashboard/supplier/products - Product management list
 /dashboard/supplier/products/new - Create product
@@ -83,7 +109,11 @@ export enum UserRole {
 /dashboard/influencer/shop  - Shop builder (split-pane)
 
 /dashboard/admin/           - Admin console (5 tabs)
+<<<<<<< HEAD
 ```
+=======
+\`\`\`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 
 ## Key Features Implemented
 
@@ -120,21 +150,36 @@ export enum UserRole {
 ## Component Architecture
 
 ### Layout Components
+<<<<<<< HEAD
 ```
+=======
+\`\`\`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 components/layout/
 ├── header.tsx              - Navigation with auth state
 ├── footer.tsx              - 4-column footer with newsletter
 └── cookie-banner.tsx       - GDPR compliance
+<<<<<<< HEAD
 ```
 
 ### Dashboard Components
 ```
+=======
+\`\`\`
+
+### Dashboard Components
+\`\`\`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 app/dashboard/
 ├── layout.tsx              - Role-based sidebar navigation
 ├── supplier/               - Supplier-specific pages
 ├── influencer/             - Influencer-specific pages
 └── admin/                  - Admin console
+<<<<<<< HEAD
 ```
+=======
+\`\`\`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 
 ### Shared UI Components (shadcn/ui)
 - Button, Card, Input, Select, Dialog, Sheet
@@ -144,6 +189,7 @@ app/dashboard/
 ## API Structure & Stubs
 
 ### Authentication APIs
+<<<<<<< HEAD
 ```
 POST /api/auth/sign-in      - Returns { ok: true, role: string }
 POST /api/auth/sign-up      - Returns { ok: true }
@@ -152,6 +198,16 @@ POST /api/auth/reset        - Returns { ok: true }
 
 ### Product Management APIs
 ```
+=======
+\`\`\`
+POST /api/auth/sign-in      - Returns { ok: true, role: string }
+POST /api/auth/sign-up      - Returns { ok: true }
+POST /api/auth/reset        - Returns { ok: true }
+\`\`\`
+
+### Product Management APIs
+\`\`\`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 GET    /api/products        - List with filters/pagination
 POST   /api/products        - Create new product
 GET    /api/products/[id]   - Get single product
@@ -160,17 +216,30 @@ DELETE /api/products/[id]   - Delete product
 POST   /api/products/bulk-deactivate - Bulk operations
 POST   /api/products/import - CSV import with dry-run
 GET    /api/products/export - CSV export stream
+<<<<<<< HEAD
 ```
 
 ### E-commerce APIs
 ```
 POST /api/checkout/session  - Returns { url: "/order/success" }
 ```
+=======
+\`\`\`
+
+### E-commerce APIs
+\`\`\`
+POST /api/checkout/session  - Returns { url: "/order/success" }
+\`\`\`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 
 ## Data Structures
 
 ### Product Interface
+<<<<<<< HEAD
 ```typescript
+=======
+\`\`\`typescript
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 interface Product {
   id: string
   title: string
@@ -187,10 +256,17 @@ interface Product {
   supplierId: string
   createdAt: string
 }
+<<<<<<< HEAD
 ```
 
 ### Cart Item Interface
 ```typescript
+=======
+\`\`\`
+
+### Cart Item Interface
+\`\`\`typescript
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 interface CartItem {
   id: string
   productId: string
@@ -200,7 +276,11 @@ interface CartItem {
   image: string
   influencerHandle: string
 }
+<<<<<<< HEAD
 ```
+=======
+\`\`\`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 
 ## Accessibility Features
 - **Keyboard Navigation**: Full tab order, focus management
@@ -246,7 +326,11 @@ interface CartItem {
 7. **Analytics**: Add tracking and monitoring
 
 ## File Structure Summary
+<<<<<<< HEAD
 ```
+=======
+\`\`\`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 app/
 ├── (auth)/                 - Authentication pages
 ├── api/                    - API route stubs
@@ -268,6 +352,10 @@ lib/
 ├── auth-context.tsx        - Authentication state
 ├── types.ts                - TypeScript interfaces
 └── utils.ts                - Utility functions
+<<<<<<< HEAD
 ```
+=======
+\`\`\`
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 
 This comprehensive platform provides a solid foundation for a production-ready influencer commerce application with proper architecture, accessibility, and user experience considerations.

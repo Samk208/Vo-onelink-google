@@ -162,3 +162,106 @@ export interface ProductCSV {
   inventory: number
   active: boolean
 }
+
+// ============================================================================
+// ONBOARDING SYSTEM TYPES
+// ============================================================================
+
+export type OnboardingUserRole = 'influencer' | 'brand' | 'customer' | 'admin'
+export type VerificationStatus = 'draft' | 'submitted' | 'in_review' | 'verified' | 'rejected'
+export type DocumentType = 'identity_card' | 'passport' | 'drivers_license' | 'business_registration' | 'tax_certificate' | 'bank_statement' | 'utility_bill' | 'other'
+export type DocumentStatus = 'pending' | 'verified' | 'rejected'
+
+export interface Profile {
+  id: string
+  role: OnboardingUserRole
+  handle?: string
+  country?: string
+  phone?: string
+  language: string
+  avatar_url?: string
+  banner_url?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface VerificationRequest {
+  id: string
+  user_id: string
+  role: OnboardingUserRole
+  status: VerificationStatus
+  rejection_reason?: string
+  submitted_at?: string
+  reviewed_at?: string
+  reviewed_by?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface VerificationDocument {
+  id: string
+  request_id: string
+  doc_type: DocumentType
+  storage_path: string
+  mime_type: string
+  size_bytes: number
+  status: DocumentStatus
+  rejection_reason?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BrandCompany {
+  id: string
+  user_id: string
+  legal_name: string
+  trade_name?: string
+  website?: string
+  support_email: string
+  tax_country: string
+  biz_registration_no?: string
+  mail_order_license_no?: string
+  address: Record<string, any>
+  created_at: string
+  updated_at: string
+}
+
+export interface BrandCommissionDefaults {
+  id: string
+  brand_user_id: string
+  rate_percent: number
+  currency: string
+  created_at: string
+  updated_at: string
+}
+
+export interface InfluencerPayouts {
+  id: string
+  user_id: string
+  bank_holder: string
+  bank_name: string
+  account_no_encrypted: string
+  iban_encrypted?: string
+  country: string
+  created_at: string
+  updated_at: string
+}
+
+// Onboarding API Response Types
+export interface OnboardingApiResponse<T = any> {
+  ok: boolean
+  data?: T
+  error?: string
+  message?: string
+  fieldErrors?: Record<string, string[]>
+}
+
+// Complete onboarding data for a user
+export interface UserOnboardingData {
+  profile: Profile
+  verificationRequest?: VerificationRequest
+  verificationDocuments?: VerificationDocument[]
+  brandCompany?: BrandCompany
+  brandCommissionDefaults?: BrandCommissionDefaults
+  influencerPayouts?: InfluencerPayouts
+}

@@ -11,7 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { toast } from "@/hooks/use-toast"
+<<<<<<< HEAD
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+=======
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 
 const resetSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -62,7 +65,10 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState("")
+<<<<<<< HEAD
   const supabase = createClientComponentClient()
+=======
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 
   const form = useForm<ResetForm>({
     resolver: zodResolver(resetSchema),
@@ -75,6 +81,7 @@ export default function ResetPasswordPage() {
     setIsLoading(true)
     setError("")
 
+<<<<<<< HEAD
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
       redirectTo: `${location.origin}/update-password`,
     })
@@ -89,6 +96,36 @@ export default function ResetPasswordPage() {
         title: "Reset link sent!",
         description: "If an account exists, you'll receive reset instructions via email.",
       })
+=======
+    try {
+      const response = await fetch("/api/auth/reset", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      })
+
+      const result = await response.json()
+
+      if (!result.ok) {
+        if (result.fieldErrors?.email) {
+          form.setError("email", { message: result.fieldErrors.email })
+        }
+        setError(result.error || "Something went wrong. Please try again.")
+        return
+      }
+
+      setIsSuccess(true)
+      toast({
+        title: "Reset link sent!",
+        description: result.message || "If an account exists, you'll receive reset instructions via email.",
+      })
+    } catch (err) {
+      setError("Something went wrong. Please try again.")
+    } finally {
+      setIsLoading(false)
+>>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
     }
   }
 

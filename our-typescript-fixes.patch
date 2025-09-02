@@ -1,0 +1,348 @@
+From 6645dd0f3670c0a07f8d2d91daacd4b8ba374f9f Mon Sep 17 00:00:00 2001
+From: Samk208 <ksamuka303@gmail.com>
+Date: Tue, 2 Sep 2025 20:54:42 +0900
+Subject: [PATCH 1/2] Fix(typescript): resolve all critical type errors and
+ merge conflicts
+
+---
+ app/api/admin/users/[id]/verify/route.ts       |  2 +-
+ app/api/checkout/route.ts                      |  2 +-
+ app/api/orders/route.ts                        |  2 +-
+ app/api/products/export/route.ts               |  2 +-
+ app/dashboard/supplier/products/data-table.tsx |  2 ++
+ lib/auth-context.tsx                           | 14 +++-----------
+ lib/auth-helpers.ts                            |  2 +-
+ lib/supabase.ts                                |  5 +++--
+ 8 files changed, 13 insertions(+), 18 deletions(-)
+
+diff --git a/app/api/admin/users/[id]/verify/route.ts b/app/api/admin/users/[id]/verify/route.ts
+index 5b260ef..55731b6 100644
+--- a/app/api/admin/users/[id]/verify/route.ts
++++ b/app/api/admin/users/[id]/verify/route.ts
+@@ -49,7 +49,7 @@ export async function PUT(
+     }
+ 
+     const { verified, notes } = verifyValidation.data
+-    const supabase = createServerSupabaseClient()
++    const supabase = await createServerSupabaseClient()
+ 
+     // Check if user exists
+     const { data: targetUser, error: fetchError } = await supabase
+diff --git a/app/api/checkout/route.ts b/app/api/checkout/route.ts
+index 897d770..2e5884e 100644
+--- a/app/api/checkout/route.ts
++++ b/app/api/checkout/route.ts
+@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
+     }
+ 
+     const { items, shippingAddress, billingAddress } = validation.data
+-    const supabase = createServerSupabaseClient()
++    const supabase = await createServerSupabaseClient()
+ 
+     // Fetch product details and calculate total
+     const productIds = items.map(item => item.productId)
+diff --git a/app/api/orders/route.ts b/app/api/orders/route.ts
+index 3979e3e..7af2d0a 100644
+--- a/app/api/orders/route.ts
++++ b/app/api/orders/route.ts
+@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
+     }
+ 
+     const { page, limit } = validation.data
+-    const supabase = createServerSupabaseClient()
++    const supabase = await createServerSupabaseClient()
+ 
+     let query = supabase
+       .from('orders')
+diff --git a/app/api/products/export/route.ts b/app/api/products/export/route.ts
+index 239ea57..e74cbb9 100644
+--- a/app/api/products/export/route.ts
++++ b/app/api/products/export/route.ts
+@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
+     }
+ 
+     const { search, category, region, active, inStock } = validation.data
+-    const supabase = createServerSupabaseClient()
++    const supabase = await createServerSupabaseClient()
+ 
+     let query = supabase
+       .from('products')
+diff --git a/app/dashboard/supplier/products/data-table.tsx b/app/dashboard/supplier/products/data-table.tsx
+index 6132119..3b3ec55 100644
+--- a/app/dashboard/supplier/products/data-table.tsx
++++ b/app/dashboard/supplier/products/data-table.tsx
+@@ -28,11 +28,13 @@ import { Input } from '@/components/ui/input'
+ interface DataTableProps<TData, TValue> {
+   columns: ColumnDef<TData, TValue>[]
+   data: TData[]
++  meta?: any
+ }
+ 
+ export function DataTable<TData, TValue>({
+   columns,
+   data,
++  meta,
+ }: DataTableProps<TData, TValue>) {
+   const [sorting, setSorting] = React.useState<SortingState>([])
+   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+diff --git a/lib/auth-context.tsx b/lib/auth-context.tsx
+index d8e0a64..343645a 100644
+--- a/lib/auth-context.tsx
++++ b/lib/auth-context.tsx
+@@ -3,21 +3,13 @@
+ import { createContext, useContext, useEffect, useState } from 'react'
+ import { User } from '@supabase/supabase-js'
+ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+-import type { UserRole, UserProfile } from "./types"
++import { UserRole, type UserProfile } from "./types"
+ 
+ // Helper to create a Supabase client
+ const createSupabaseClient = () => createClientComponentClient()
+ 
+ const supabase = createSupabaseClient()
+ 
+-// Define UserRole enum locally to avoid import issues
+-const UserRole = {
+-  supplier: 'supplier' as const,
+-  influencer: 'influencer' as const,
+-  customer: 'customer' as const,
+-  admin: 'admin' as const
+-} as const
+-
+ interface AuthUser extends User {
+   role?: UserRole
+   profile?: UserProfile
+@@ -71,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
+ 
+       if (error) {
+         console.error('Error fetching user profile:', error)
+-        setUser({ ...authUser, role: UserRole.customer })
++        setUser({ ...authUser, role: UserRole.CUSTOMER })
+       } else {
+         setUser({
+           ...authUser,
+@@ -81,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
+       }
+     } catch (error) {
+       console.error('Error in fetchUserProfile:', error)
+-      setUser({ ...authUser, role: UserRole.customer })
++      setUser({ ...authUser, role: UserRole.CUSTOMER })
+     } finally {
+       setIsLoading(false)
+     }
+diff --git a/lib/auth-helpers.ts b/lib/auth-helpers.ts
+index 2feb670..59a3889 100644
+--- a/lib/auth-helpers.ts
++++ b/lib/auth-helpers.ts
+@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server'
+ // Get current user from request
+ export async function getCurrentUser(request: NextRequest): Promise<User | null> {
+   try {
+-    const supabase = createServerSupabaseClient()
++    const supabase = await createServerSupabaseClient()
+     
+     const { data: { session } } = await supabase.auth.getSession()
+     if (!session?.user) return null
+diff --git a/lib/supabase.ts b/lib/supabase.ts
+index 0190adf..43387e5 100644
+--- a/lib/supabase.ts
++++ b/lib/supabase.ts
+@@ -11,8 +11,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+ 
+ // Server-side Supabase client (for API routes)
+-export const createServerSupabaseClient = () => {
+-  return createRouteHandlerClient({ cookies })
++export const createServerSupabaseClient = async () => {
++  const cookieStore = await cookies()
++  return createRouteHandlerClient({ cookies: () => cookieStore })
+ }
+ 
+ // Service role client (for admin operations)
+-- 
+2.49.0.windows.1
+
+
+From cee2cd84a8307172f8a26d6717bc1f9db66ccbf5 Mon Sep 17 00:00:00 2001
+From: Samk208 <ksamuka303@gmail.com>
+Date: Tue, 2 Sep 2025 23:32:32 +0900
+Subject: [PATCH 2/2] Fix(api): resolve all Supabase TypeScript errors and
+ cookie handling issues
+
+---
+ app/api/checkout/route.ts        |  2 +-
+ app/api/orders/[id]/route.ts     |  4 ++--
+ app/api/products/export/route.ts |  2 +-
+ app/api/products/import/route.ts |  2 +-
+ app/api/products/route.ts        |  4 ++--
+ lib/auth-context.tsx             |  6 +++---
+ lib/supabase.ts                  |  9 ++++-----
+ lib/types.ts                     | 11 +++++++++++
+ 8 files changed, 25 insertions(+), 15 deletions(-)
+
+diff --git a/app/api/checkout/route.ts b/app/api/checkout/route.ts
+index 2e5884e..897d770 100644
+--- a/app/api/checkout/route.ts
++++ b/app/api/checkout/route.ts
+@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
+     }
+ 
+     const { items, shippingAddress, billingAddress } = validation.data
+-    const supabase = await createServerSupabaseClient()
++    const supabase = createServerSupabaseClient()
+ 
+     // Fetch product details and calculate total
+     const productIds = items.map(item => item.productId)
+diff --git a/app/api/orders/[id]/route.ts b/app/api/orders/[id]/route.ts
+index 205c15d..8ba0fd1 100644
+--- a/app/api/orders/[id]/route.ts
++++ b/app/api/orders/[id]/route.ts
+@@ -26,7 +26,7 @@ export async function GET(
+       )
+     }
+ 
+-    const supabase = createServerSupabaseClient()
++    const supabase = await createServerSupabaseClient()
+     let query = supabase
+       .from('orders')
+       .select('*')
+@@ -102,7 +102,7 @@ export async function PUT(
+     }
+ 
+     const { status, notes } = updateValidation.data
+-    const supabase = createServerSupabaseClient()
++    const supabase = await createServerSupabaseClient()
+ 
+     const { data: order, error } = await supabase
+       .from('orders')
+diff --git a/app/api/products/export/route.ts b/app/api/products/export/route.ts
+index e74cbb9..239ea57 100644
+--- a/app/api/products/export/route.ts
++++ b/app/api/products/export/route.ts
+@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
+     }
+ 
+     const { search, category, region, active, inStock } = validation.data
+-    const supabase = await createServerSupabaseClient()
++    const supabase = createServerSupabaseClient()
+ 
+     let query = supabase
+       .from('products')
+diff --git a/app/api/products/import/route.ts b/app/api/products/import/route.ts
+index 5b63cab..3434680 100644
+--- a/app/api/products/import/route.ts
++++ b/app/api/products/import/route.ts
+@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
+     }
+ 
+     const { csvData, dryRun = false } = validation.data
+-    const supabase = createServerSupabaseClient()
++    const supabase = await createServerSupabaseClient()
+ 
+     // Parse CSV data (expecting header row)
+     const records = parse(csvData, {
+diff --git a/app/api/products/route.ts b/app/api/products/route.ts
+index 67a6251..bd391e1 100644
+--- a/app/api/products/route.ts
++++ b/app/api/products/route.ts
+@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
+     }
+ 
+     const { page = 1, limit = 20, search, category, region, active, inStock } = validation.data
+-    const supabase = createServerSupabaseClient()
++    const supabase = await createServerSupabaseClient()
+ 
+     let query = supabase
+       .from('products')
+@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
+     }
+ 
+     const productData = validation.data
+-    const supabase = createServerSupabaseClient()
++    const supabase = await createServerSupabaseClient()
+ 
+     // Check for duplicate SKU if provided
+     if (productData.sku) {
+diff --git a/lib/auth-context.tsx b/lib/auth-context.tsx
+index 343645a..62b6e5c 100644
+--- a/lib/auth-context.tsx
++++ b/lib/auth-context.tsx
+@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
+   const [isLoading, setIsLoading] = useState(true)
+ 
+   useEffect(() => {
+-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
++    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+       setIsLoading(true)
+       if (event === "SIGNED_IN" && session) {
+         await fetchUserProfile(session.user)
+@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
+ 
+     checkSession()
+ 
+-    return () => authListener?.unsubscribe()
++    return () => subscription.unsubscribe()
+   }, [])
+ 
+   const fetchUserProfile = async (authUser: User) => {
+@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
+ 
+     if (data.user) {
+       await fetchUserProfile(data.user)
+-      return { success: true, user }
++      return { success: true, user: user || undefined }
+     }
+ 
+     return { success: false, error: "An unknown error occurred." }
+diff --git a/lib/supabase.ts b/lib/supabase.ts
+index 43387e5..dadbd57 100644
+--- a/lib/supabase.ts
++++ b/lib/supabase.ts
+@@ -10,10 +10,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+ // Client-side Supabase client
+ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+ 
+-// Server-side Supabase client (for API routes)
+-export const createServerSupabaseClient = async () => {
+-  const cookieStore = await cookies()
+-  return createRouteHandlerClient({ cookies: () => cookieStore })
++// Server-side Supabase client (for API routes) - handles async cookies
++export const createServerSupabaseClient = () => {
++  return createRouteHandlerClient({ cookies })
+ }
+ 
+ // Service role client (for admin operations)
+@@ -30,7 +29,7 @@ export const createMiddlewareSupabaseClient = (req: NextRequest) => {
+ 
+   return {
+     supabase: createRouteHandlerClient({
+-      cookies: () => req.cookies
++      cookies: () => req.cookies as any
+     }),
+     response: res,
+   }
+diff --git a/lib/types.ts b/lib/types.ts
+index be714f2..589d5d0 100644
+--- a/lib/types.ts
++++ b/lib/types.ts
+@@ -29,6 +29,17 @@ export interface User {
+   updatedAt: string
+ }
+ 
++export interface UserProfile {
++  id: string
++  email: string
++  name: string
++  role: UserRole
++  avatar?: string
++  verified?: boolean
++  created_at: string
++  updated_at: string
++}
++
+ export interface Product {
+   id: string
+   title: string
+-- 
+2.49.0.windows.1
+

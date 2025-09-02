@@ -42,13 +42,12 @@ export const createProductSchema = z.object({
 export const updateProductSchema = createProductSchema.partial()
 
 export const productQuerySchema = z.object({
-  page: z.string().transform(Number).pipe(z.number().int().min(1)).optional(),
-  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
+  page: z.number().int().min(1).default(1),
+  limit: z.number().int().min(1).max(100).default(10),
   search: z.string().optional(),
   category: z.string().optional(),
-  region: z.string().optional(),
-  active: z.string().transform((val) => val === 'true').optional(),
-  inStock: z.string().transform((val) => val === 'true').optional(),
+  status: z.string().optional(),
+  supplierId: z.string().optional(),
 })
 
 // CSV Import validation
@@ -149,4 +148,112 @@ export const uploadSchema = z.object({
   fileName: z.string().min(1),
   fileType: z.string().min(1),
   fileSize: z.number().max(5 * 1024 * 1024, 'File size must be less than 5MB'),
+})
+
+// ============================================================================
+// ONBOARDING VALIDATION SCHEMAS
+// ============================================================================
+
+// Profile validation
+export const profileUpdateSchema = z.object({
+  role: z.enum(['influencer', 'brand', 'customer', 'admin']).optional(),
+  handle: z.string().regex(/^[a-zA-Z0-9_-]{3,30}$/, 'Handle must be 3-30 characters, alphanumeric, underscore, or dash only').optional(),
+  country: z.string().length(2, 'Country must be 2-letter ISO code').optional(),
+  phone: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Invalid phone number format').optional(),
+  language: z.string().length(2, 'Language must be 2-letter ISO code').optional(),
+  avatar_url: z.string().url('Invalid avatar URL').optional(),
+  banner_url: z.string().url('Invalid banner URL').optional(),
+})
+
+// Verification request validation
+export const verificationRequestSchema = z.object({
+  role: z.enum(['influencer', 'brand', 'customer', 'admin']),
+})
+
+export const verificationRequestUpdateSchema = z.object({
+  status: z.enum(['draft', 'submitted', 'in_review', 'verified', 'rejected']).optional(),
+  rejection_reason: z.string().optional(),
+})
+
+// Verification document validation
+export const verificationDocumentSchema = z.object({
+  request_id: uuidSchema,
+  doc_type: z.enum(['identity_card', 'passport', 'drivers_license', 'business_registration', 'tax_certificate', 'bank_statement', 'utility_bill', 'other']),
+  storage_path: z.string().min(1, 'Storage path is required'),
+  mime_type: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']),
+  size_bytes: z.number().int().min(1).max(10485760), // 10MB limit
+})
+
+export const verificationDocumentUpdateSchema = z.object({
+  status: z.enum(['pending', 'verified', 'rejected']).optional(),
+  rejection_reason: z.string().optional(),
+})
+
+// Brand company validation
+export const brandCompanySchema = z.object({
+  legal_name: z.string().min(1, 'Legal name is required').max(255),
+  trade_name: z.string().max(255).optional(),
+  website: z.string().url('Invalid website URL').optional(),
+  support_email: z.string().email('Invalid email format'),
+  tax_country: z.string().length(2, 'Tax country must be 2-letter ISO code'),
+  biz_registration_no: z.string().max(100).optional(),
+  mail_order_license_no: z.string().max(100).optional(),
+  address: z.object({
+    street: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    postal_code: z.string().optional(),
+    country: z.string().optional(),
+  }).optional(),
+})
+
+export const brandCompanyUpdateSchema = brandCompanySchema.partial()
+
+// Brand commission defaults validation
+export const brandCommissionDefaultsSchema = z.object({
+  rate_percent: z.number().min(0, 'Rate must be at least 0%').max(95, 'Rate cannot exceed 95%'),
+  currency: z.string().regex(/^[A-Z]{3}$/, 'Currency must be 3-letter ISO code'),
+})
+
+export const brandCommissionDefaultsUpdateSchema = brandCommissionDefaultsSchema.partial()
+
+// Influencer payouts validation
+export const influencerPayoutsSchema = z.object({
+  bank_holder: z.string().min(1, 'Bank holder name is required').max(255),
+  bank_name: z.string().min(1, 'Bank name is required').max(255),
+  account_no_encrypted: z.string().min(1, 'Account number is required'),
+  iban_encrypted: z.string().optional(),
+  country: z.string().length(2, 'Country must be 2-letter ISO code'),
+})
+
+export const influencerPayoutsUpdateSchema = influencerPayoutsSchema.partial()
+
+// File upload validation for documents
+export const documentUploadSchema = z.object({
+  doc_type: z.enum(['identity_card', 'passport', 'drivers_license', 'business_registration', 'tax_certificate', 'bank_statement', 'utility_bill', 'other']),
+  file_name: z.string().min(1, 'File name is required'),
+  file_size: z.number().int().min(1).max(10485760), // 10MB limit
+  mime_type: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']),
+})
+
+// Admin verification review validation
+export const verificationReviewSchema = z.object({
+  status: z.enum(['verified', 'rejected']),
+  rejection_reason: z.string().optional(),
+})
+
+// Query schemas for filtering
+export const verificationRequestQuerySchema = z.object({
+  status: z.enum(['draft', 'submitted', 'in_review', 'verified', 'rejected']).optional(),
+  role: z.enum(['influencer', 'brand', 'customer', 'admin']).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+})
+
+export const profileQuerySchema = z.object({
+  role: z.enum(['influencer', 'brand', 'customer', 'admin']).optional(),
+  country: z.string().length(2).optional(),
+  search: z.string().optional(), // Search by handle or name
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
 })
