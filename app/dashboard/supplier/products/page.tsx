@@ -50,59 +50,63 @@ export default function SupplierProductsPage() {
     }
   }
 
-  useEffect(() => {
-    if (isAuthLoading) return
-
-    if (!user) {
-      router.push('/sign-in')
-      toast({ title: 'Unauthorized', description: 'You must be logged in to view this page.', variant: 'destructive' })
-      return
-    }
-
-    fetchProducts()
-  }, [user, isAuthLoading, router, toast])
-
   const deleteProduct = async (productId: string) => {
     try {
       const response = await fetch(`/api/products/${productId}`, {
-        method: 'DELETE',
-      });
+        method: 'DELETE'
+      })
 
       if (!response.ok) {
-        throw new Error('Failed to delete product');
+        throw new Error('Failed to delete product')
       }
 
-      toast({ title: 'Success', description: 'Product deleted successfully.' });
-      fetchProducts(); // Refetch products after deletion
+      setProducts(prev => prev.filter(p => p.id !== productId))
+      toast({ title: 'Success', description: 'Product deleted successfully.' })
     } catch (error) {
-      console.error(error);
-      toast({ title: 'Error', description: 'Could not delete the product.', variant: 'destructive' });
+      console.error(error)
+      toast({ title: 'Error', description: 'Failed to delete product.', variant: 'destructive' })
     }
-  };
+  }
+
+  useEffect(() => {
+    if (!isAuthLoading && user?.role === 'supplier') {
+      fetchProducts()
+    }
+  }, [isAuthLoading, user])
+
+  if (isAuthLoading || isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold">Your Products</h1>
-        <Button asChild>
-          <Link href="/dashboard/supplier/products/new">
-            <PlusCircle className="w-4 h-4 mr-2" />
-            New Product
-          </Link>
-        </Button>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">My Products</h1>
+        <Link href="/dashboard/supplier/products/new">
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Product
+          </Button>
+        </Link>
       </div>
-      {
-        isLoading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        ) : (
-          <DataTable columns={columns} data={products} meta={{ deleteProduct }} />
-        )
-      }
+
+      <DataTable 
+        columns={columns} 
+        data={products}
+        meta={{ deleteProduct }}
+      />
     </div>
   )
 }

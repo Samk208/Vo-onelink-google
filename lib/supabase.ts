@@ -11,10 +11,8 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Server-side Supabase client (for API routes)
-export const createServerSupabaseClient = async () => {
-  const cookieStore = await cookies()
-  
-  return createRouteHandlerClient({ cookies: () => cookieStore })
+export const createServerSupabaseClient = () => {
+  return createRouteHandlerClient({ cookies })
 }
 
 // Service role client (for admin operations)

@@ -1,8 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase"
-import { productQuerySchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
+import { stringify } from "csv-stringify/sync"
+import { z } from "zod"
+
+// Simple validation schema for export parameters
+const productQuerySchema = z.object({
+  search: z.string().optional(),
+  category: z.string().optional(),
+  region: z.string().optional(),
+  active: z.boolean().optional(),
+  inStock: z.boolean().optional(),
+})
 
 // GET /api/products/export - Export products to CSV (suppliers/admins only)
 export async function GET(request: NextRequest) {

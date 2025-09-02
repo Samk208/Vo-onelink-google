@@ -1,79 +1,91 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState } from 'react'
+import { User } from '@supabase/supabase-js'
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { UserRole } from "./types"
-import type { SupabaseClient, User as SupabaseUser } from "@supabase/supabase-js"
+import type { UserRole, UserProfile } from "./types"
 
-interface User {
-  id: string
-  email: string
-  role: UserRole
-  name?: string
-  avatar?: string
+// Helper to create a Supabase client
+const createSupabaseClient = () => createClientComponentClient()
+
+const supabase = createSupabaseClient()
+
+// Define UserRole enum locally to avoid import issues
+const UserRole = {
+  supplier: 'supplier' as const,
+  influencer: 'influencer' as const,
+  customer: 'customer' as const,
+  admin: 'admin' as const
+} as const
+
+interface AuthUser extends User {
+  role?: UserRole
+  profile?: UserProfile
 }
 
 interface AuthContextType {
-  user: User | null
+  user: AuthUser | null
   isLoading: boolean
-  signIn: (email: string, password: string) => Promise<{ success: boolean; user?: User; error?: string }>
+  signIn: (email: string, password: string) => Promise<{ success: boolean; user?: AuthUser; error?: string }>
   signOut: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Helper to create a Supabase client
-const createSupabaseClient = () => createClientComponentClient()
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const supabase: SupabaseClient = createSupabaseClient()
-  const [user, setUser] = useState<User | null>(null)
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       setIsLoading(true)
       if (event === "SIGNED_IN" && session) {
-        const currentUser = session.user
-        const role = (currentUser.user_metadata?.role as UserRole) || UserRole.CUSTOMER
-        const profile: User = {
-          id: currentUser.id,
-          email: currentUser.email!,
-          role,
-          name: currentUser.user_metadata?.name || currentUser.email!.split("@")[0],
-          avatar: currentUser.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser.email}`,
-        }
-        setUser(profile)
+        await fetchUserProfile(session.user)
       } else if (event === "SIGNED_OUT") {
         setUser(null)
+        setIsLoading(false)
       }
-      setIsLoading(false)
     })
 
     // Initial session check
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession()
       if (data.session) {
-        const currentUser = data.session.user
-        const role = (currentUser.user_metadata?.role as UserRole) || UserRole.CUSTOMER
-        const profile: User = {
-          id: currentUser.id,
-          email: currentUser.email!,
-          role,
-          name: currentUser.user_metadata?.name || currentUser.email!.split("@")[0],
-          avatar: currentUser.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser.email}`,
-        }
-        setUser(profile)
+        await fetchUserProfile(data.session.user)
       }
       setIsLoading(false)
     }
 
     checkSession()
 
-    return () => {
-      authListener?.unsubscribe()
+    return () => authListener?.unsubscribe()
+  }, [])
+
+  const fetchUserProfile = async (authUser: User) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single()
+
+      if (error) {
+        console.error('Error fetching user profile:', error)
+        setUser({ ...authUser, role: UserRole.customer })
+      } else {
+        setUser({
+          ...authUser,
+          role: profile.role as UserRole,
+          profile
+        })
+      }
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error)
+      setUser({ ...authUser, role: UserRole.customer })
+    } finally {
+      setIsLoading(false)
     }
-  }, [supabase.auth])
+  }
 
   const signIn = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
@@ -83,15 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (data.user) {
-      const role = (data.user.user_metadata?.role as UserRole) || UserRole.CUSTOMER
-      const profile: User = {
-        id: data.user.id,
-        email: data.user.email!,
-        role,
-        name: data.user.user_metadata?.name || data.user.email!.split("@")[0],
-        avatar: data.user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${data.user.email}`,
-      }
-      return { success: true, user: profile }
+      await fetchUserProfile(data.user)
+      return { success: true, user }
     }
 
     return { success: false, error: "An unknown error occurred." }
@@ -99,15 +104,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut()
+    setUser(null)
   }
 
-  return <AuthContext.Provider value={{ user, isLoading, signIn, signOut }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ user, isLoading, signIn, signOut }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
 }

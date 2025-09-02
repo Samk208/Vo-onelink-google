@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase"
-import { csvImportSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
+import { parse } from "csv-parse/sync"
+import { z } from "zod"
 
 interface ImportResult {
   success: number
@@ -27,7 +28,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const validation = csvImportSchema.safeParse(body)
+    const validation = z.object({
+      csvData: z.string(),
+      dryRun: z.boolean().optional(),
+    }).safeParse(body)
     
     if (!validation.success) {
       const errors: Record<string, string> = {}
@@ -45,15 +49,19 @@ export async function POST(request: NextRequest) {
     const supabase = createServerSupabaseClient()
 
     // Parse CSV data (expecting header row)
-    const lines = csvData.trim().split('\n')
-    if (lines.length < 2) {
+    const records = parse(csvData, {
+      columns: true,
+      skip_empty_lines: true,
+    })
+
+    if (records.length < 1) {
       return NextResponse.json(
-        { ok: false, message: "CSV must contain at least a header row and one data row" },
+        { ok: false, message: "CSV must contain at least one data row" },
         { status: 400 }
       )
     }
 
-    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
+    const headers = Object.keys(records[0])
     const expectedHeaders = ['sku', 'title', 'description', 'image_urls', 'base_price', 'commission_pct', 'regions', 'inventory', 'active']
     
     // Validate headers
@@ -72,75 +80,77 @@ export async function POST(request: NextRequest) {
       dryRun
     }
 
+    // Helper function to validate image URLs
+    const validateImageUrl = (url: string) => {
+      try {
+        new URL(url)
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    const productSchema = z.object({
+      title: z.string().min(1),
+      description: z.string().min(1),
+      images: z.array(z.string().url()).min(1),
+      price: z.number().min(0),
+      regions: z.array(z.string()).min(1),
+      stock: z.number().min(0),
+    })
+
     // Process each data row
-    for (let i = 1; i < lines.length; i++) {
-      const rowData = lines[i].split(',').map(cell => cell.trim().replace(/"/g, ''))
+    for (let i = 0; i < records.length; i++) {
+      const rowData = records[i]
       const rowNumber = i + 1
 
       try {
         // Map CSV data to product object
-        const productData: any = {}
-        headers.forEach((header, index) => {
-          const value = rowData[index] || ''
+        const productData: any = {
+          supplier_id: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+
+        const rowErrors: any = {}
+
+        // Process each field in the row
+        for (const [key, value] of Object.entries(rowData)) {
+          const stringValue = String(value || '').trim()
           
-          switch (header) {
-            case 'sku':
-              productData.sku = value || undefined
-              break
+          switch (key.toLowerCase()) {
             case 'title':
-              productData.title = value
+            case 'name':
+              productData.title = stringValue
               break
             case 'description':
-              productData.description = value
+              productData.description = stringValue
               break
             case 'image_urls':
-              productData.images = value ? value.split('|').filter(url => url.trim()) : []
+              productData.images = stringValue ? stringValue.split('|').filter((url: string) => url.trim() && validateImageUrl(url)) : []
               break
             case 'base_price':
-              productData.price = parseFloat(value)
+              productData.price = parseFloat(stringValue)
               break
-            case 'commission_pct':
-              productData.commission = parseFloat(value)
+            case 'category':
+              productData.category = stringValue
+              break
+            case 'stock_quantity':
+              productData.stock = parseInt(stringValue)
               break
             case 'regions':
-              productData.region = value ? value.split('|').filter(r => r.trim()) : []
+              productData.regions = stringValue ? stringValue.split(',').map((r: string) => r.trim()) : []
               break
-            case 'inventory':
-              productData.stockCount = parseInt(value)
-              break
-            case 'active':
-              productData.active = value.toLowerCase() === 'true'
-              break
-          }
-        })
-
-        // Validate product data
-        const rowErrors: Record<string, string> = {}
-
-        if (!productData.title) rowErrors.title = "Title is required"
-        if (!productData.description) rowErrors.description = "Description is required"
-        if (!productData.images || productData.images.length === 0) rowErrors.images = "At least one image URL is required"
-        if (isNaN(productData.price) || productData.price < 0) rowErrors.price = "Valid price is required"
-        if (isNaN(productData.commission) || productData.commission < 0 || productData.commission > 95) rowErrors.commission = "Commission must be between 0-95%"
-        if (!productData.region || productData.region.length === 0) rowErrors.region = "At least one region is required"
-        if (isNaN(productData.stockCount) || productData.stockCount < 0) rowErrors.stockCount = "Valid stock count is required"
-
-        // Check for duplicate SKU if provided
-        if (productData.sku) {
-          const { data: existingProduct } = await supabase
-            .from('products')
-            .select('id')
-            .eq('supplier_id', user.id)
-            .eq('sku', productData.sku)
-            .single()
-
-          if (existingProduct) {
-            rowErrors.sku = "SKU already exists"
           }
         }
 
-        if (Object.keys(rowErrors).length > 0) {
+        // Validate required fields
+        const validation = productSchema.safeParse(productData)
+        if (!validation.success) {
           result.failed++
+          validation.error.errors.forEach(err => {
+            rowErrors[err.path[0]] = err.message
+          })
           result.errors.push({
             row: rowNumber,
             errors: rowErrors,
@@ -151,18 +161,13 @@ export async function POST(request: NextRequest) {
 
         // If not dry run, insert the product
         if (!dryRun) {
-          const { error } = await supabase
+          const { data: insertedProduct, error: insertError } = await supabase
             .from('products')
-            .insert({
-              ...productData,
-              supplier_id: user.id,
-              in_stock: productData.stockCount > 0,
-              category: productData.category || 'General', // Default category
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
+            .insert([productData])
+            .select()
+            .single()
 
-          if (error) {
+          if (insertError) {
             result.failed++
             result.errors.push({
               row: rowNumber,
@@ -178,7 +183,8 @@ export async function POST(request: NextRequest) {
         result.failed++
         result.errors.push({
           row: rowNumber,
-          errors: { parsing: "Failed to parse row data" }
+          errors: { parsing: "Failed to parse row data" },
+          data: {}
         })
       }
     }
