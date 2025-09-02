@@ -378,7 +378,7 @@ export default function SupplierProductsPage() {
           </div>
 
           {/* Advanced Filters */}
-          {(showFilters || window.innerWidth >= 1024) && (
+          {(showFilters || (typeof window !== "undefined" && window.innerWidth >= 1024)) && (
             <div className="mt-4 pt-4 border-t">
               <div className="space-y-4">
                 <div>
