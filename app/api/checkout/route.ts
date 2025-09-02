@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { items, shippingAddress, billingAddress } = validation.data
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
 
     // Fetch product details and calculate total
     const productIds = items.map(item => item.productId)

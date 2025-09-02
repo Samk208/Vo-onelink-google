@@ -3,20 +3,12 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import type { UserRole, UserProfile } from "./types"
+import { UserRole, type UserProfile } from "./types"
 
 // Helper to create a Supabase client
 const createSupabaseClient = () => createClientComponentClient()
 
 const supabase = createSupabaseClient()
-
-// Define UserRole enum locally to avoid import issues
-const UserRole = {
-  supplier: 'supplier' as const,
-  influencer: 'influencer' as const,
-  customer: 'customer' as const,
-  admin: 'admin' as const
-} as const
 
 interface AuthUser extends User {
   role?: UserRole
@@ -71,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error('Error fetching user profile:', error)
-        setUser({ ...authUser, role: UserRole.customer })
+        setUser({ ...authUser, role: UserRole.CUSTOMER })
       } else {
         setUser({
           ...authUser,
@@ -81,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error)
-      setUser({ ...authUser, role: UserRole.customer })
+      setUser({ ...authUser, role: UserRole.CUSTOMER })
     } finally {
       setIsLoading(false)
     }

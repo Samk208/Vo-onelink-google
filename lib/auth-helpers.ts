@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server'
 // Get current user from request
 export async function getCurrentUser(request: NextRequest): Promise<User | null> {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
     
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) return null

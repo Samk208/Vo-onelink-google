@@ -49,7 +49,7 @@ export async function PUT(
     }
 
     const { verified, notes } = verifyValidation.data
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
 
     // Check if user exists
     const { data: targetUser, error: fetchError } = await supabase

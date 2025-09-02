@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { search, category, region, active, inStock } = validation.data
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
 
     let query = supabase
       .from('products')
