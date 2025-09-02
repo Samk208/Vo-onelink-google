@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { VerificationBanner } from "@/components/ui/verification-banner"
 import {
   LayoutDashboard,
   Package,
@@ -54,7 +55,8 @@ export default function DashboardLayout({
     email: "sarah@example.com",
     role: "supplier" as const,
     avatar: "/fashion-influencer-avatar.png",
-    verified: true,
+    verified: false,
+    verificationStatus: "pending" as const, // pending | verified | rejected
   }
 
   const navItems = user.role === "supplier" ? supplierNavItems : influencerNavItems
@@ -157,7 +159,16 @@ export default function DashboardLayout({
           </aside>
 
           {/* Main content */}
-          <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
+          <main className="flex-1 p-4 sm:p-6 lg:p-8">
+            <VerificationBanner
+              userRole={user.role === "supplier" ? "brand" : "influencer"}
+              verificationStatus={user.verificationStatus}
+              onDismiss={() => {
+                console.log("[v0] Verification banner dismissed")
+              }}
+            />
+            {children}
+          </main>
         </div>
       </div>
     </Suspense>

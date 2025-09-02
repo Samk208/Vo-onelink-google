@@ -59,11 +59,6 @@ export function ImportProductsDialog({ open, onOpenChange }: ImportProductsDialo
   const [isProcessing, setIsProcessing] = useState(false)
   const [showAllRows, setShowAllRows] = useState(false)
 
-  // Handler for checkbox state changes
-  const handleDryRunChange = (checked: boolean | "indeterminate") => {
-    setDryRun(checked === true)
-  }
-
   // Mock import results
   const mockImportResults: ImportRow[] = [
     {
@@ -460,7 +455,7 @@ export function ImportProductsDialog({ open, onOpenChange }: ImportProductsDialo
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center space-x-2">
-                    <Checkbox id="dry-run" checked={dryRun} onCheckedChange={handleDryRunChange} />
+                    <Checkbox id="dry-run" checked={dryRun} onCheckedChange={setDryRun} />
                     <label htmlFor="dry-run" className="text-sm font-medium">
                       Dry run (preview only)
                     </label>

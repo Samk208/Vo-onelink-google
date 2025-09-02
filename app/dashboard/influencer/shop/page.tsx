@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -9,11 +9,8 @@ import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "sonner"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
-import { ShopSetup } from "@/components/features/shop"
-import type { InfluencerProfile, ShopProduct } from "@/lib/types"
 
 // Mock data for supplier catalog
 const supplierProducts = [
@@ -64,7 +61,7 @@ const supplierProducts = [
 ]
 
 // Mock data for influencer's curated shop
-const initialShopProducts: ShopProduct[] = [
+const initialShopProducts = [
   {
     id: "1",
     originalId: "1",
@@ -79,8 +76,6 @@ const initialShopProducts: ShopProduct[] = [
     supplier: "StyleCo",
     published: true,
     order: 0,
-    featured: true,
-    tags: ["comfortable", "casual", "everyday"],
   },
   {
     id: "2",
@@ -96,40 +91,8 @@ const initialShopProducts: ShopProduct[] = [
     supplier: "LuxeJewels",
     published: true,
     order: 1,
-    featured: false,
-    tags: ["statement", "elegant", "versatile"],
   },
 ]
-
-// Mock influencer profile
-const mockInfluencerProfile: InfluencerProfile = {
-  id: "1",
-  handle: "sarah_style",
-  name: "Sarah Chen",
-  email: "sarah@example.com",
-  bio: "Fashion and lifestyle influencer sharing my favorite finds and style tips. I curate products I truly love and believe in.",
-  avatar: "/fashion-influencer-avatar.png",
-  banner: "/fashion-banner.png",
-  followers: "125K",
-  verified: true,
-  verificationStatus: "approved",
-  verificationDate: "2024-01-15",
-  socialLinks: {
-    instagram: "https://instagram.com/sarah_style",
-    twitter: "https://twitter.com/sarah_style",
-    youtube: "https://youtube.com/@sarahstyle",
-    tiktok: "https://tiktok.com/@sarah_style",
-  },
-  shopSettings: {
-    isPublic: true,
-    customDomain: "",
-    theme: "default",
-    primaryColor: "#4F46E5",
-    accentColor: "#F59E0B",
-  },
-  createdAt: "2024-01-01T00:00:00Z",
-  updatedAt: "2024-01-15T00:00:00Z",
-}
 
 export default function MyShopBuilder() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -140,7 +103,6 @@ export default function MyShopBuilder() {
   const [shopProducts, setShopProducts] = useState(initialShopProducts)
   const [selectedProducts, setSelectedProducts] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState("products")
 
   // Filter supplier products
   const filteredProducts = supplierProducts.filter((product) => {
@@ -167,7 +129,7 @@ export default function MyShopBuilder() {
   })
 
   const handleAddToShop = (product: (typeof supplierProducts)[0]) => {
-    const newShopProduct: ShopProduct = {
+    const newShopProduct = {
       id: `shop-${Date.now()}`,
       originalId: product.id,
       title: product.title,
@@ -181,8 +143,6 @@ export default function MyShopBuilder() {
       supplier: product.supplier,
       published: false,
       order: shopProducts.length,
-      featured: false,
-      tags: [],
     }
 
     setShopProducts([...shopProducts, newShopProduct])
@@ -194,7 +154,7 @@ export default function MyShopBuilder() {
     toast.success("Product removed from your shop")
   }
 
-  const handleUpdateShopProduct = (id: string, updates: Partial<ShopProduct>) => {
+  const handleUpdateShopProduct = (id: string, updates: Partial<(typeof shopProducts)[0]>) => {
     setShopProducts(shopProducts.map((p) => (p.id === id ? { ...p, ...updates } : p)))
   }
 
@@ -228,7 +188,7 @@ export default function MyShopBuilder() {
 
   const handleBulkUnpublish = () => {
     if (selectedProducts.length === 0) {
-      toast.error("Please select products to publish")
+      toast.error("Please select products to unpublish")
       return
     }
 
@@ -240,14 +200,6 @@ export default function MyShopBuilder() {
   const handlePreviewShop = () => {
     window.open("/shop/sarah-style", "_blank")
     toast.success("Opening shop preview in new tab")
-  }
-
-  const handleSaveProfile = async (updates: Partial<InfluencerProfile>) => {
-    // In a real app, this would make an API call
-    console.log("Saving profile updates:", updates)
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    toast.success("Profile updated successfully!")
   }
 
   return (
@@ -277,334 +229,298 @@ export default function MyShopBuilder() {
               </svg>
               Preview Shop
             </Button>
+            <Button onClick={handleBulkPublish} disabled={selectedProducts.length === 0}>
+              Bulk Publish ({selectedProducts.length})
+            </Button>
+            <Button variant="outline" onClick={handleBulkUnpublish} disabled={selectedProducts.length === 0}>
+              Bulk Unpublish
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="p-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="products">Product Management</TabsTrigger>
-            <TabsTrigger value="setup">Shop Setup</TabsTrigger>
-          </TabsList>
+      <div className="flex h-[calc(100vh-120px)]">
+        {/* Left Pane - Supplier Catalog */}
+        <div className="w-1/2 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Supplier Catalog</h2>
 
-          <TabsContent value="products" className="space-y-6">
-            {/* Product Management Interface */}
-            <div className="flex h-[calc(100vh-280px)]">
-              {/* Left Pane - Supplier Catalog */}
-              <div className="w-1/2 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Supplier Catalog</h2>
+            {/* Search */}
+            <div className="mb-4">
+              <Input
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full"
+              />
+            </div>
 
-                  {/* Search */}
-                  <div className="mb-4">
-                    <Input
-                      placeholder="Search products..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full"
-                    />
-                  </div>
+            {/* Filters */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="Fashion">Fashion</SelectItem>
+                  <SelectItem value="Beauty">Beauty</SelectItem>
+                  <SelectItem value="Jewelry">Jewelry</SelectItem>
+                  <SelectItem value="Home">Home</SelectItem>
+                </SelectContent>
+              </Select>
 
-                  {/* Filters */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        <SelectItem value="Fashion">Fashion</SelectItem>
-                        <SelectItem value="Beauty">Beauty</SelectItem>
-                        <SelectItem value="Jewelry">Jewelry</SelectItem>
-                        <SelectItem value="Home">Home</SelectItem>
-                      </SelectContent>
-                    </Select>
+              <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Region" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Regions</SelectItem>
+                  <SelectItem value="Global">Global</SelectItem>
+                  <SelectItem value="KR">Korea</SelectItem>
+                  <SelectItem value="JP">Japan</SelectItem>
+                  <SelectItem value="CN">China</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-                    <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Region" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Regions</SelectItem>
-                        <SelectItem value="Global">Global</SelectItem>
-                        <SelectItem value="KR">Korea</SelectItem>
-                        <SelectItem value="JP">Japan</SelectItem>
-                        <SelectItem value="CN">China</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+            {/* Price Range */}
+            <div className="mb-4">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                Price Range: ${priceRange[0]} - ${priceRange[1]}
+              </label>
+              <Slider value={priceRange} onValueChange={setPriceRange} max={200} step={10} className="w-full" />
+            </div>
 
-                  {/* Price Range */}
-                  <div className="mb-4">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                      Price Range: ${priceRange[0]} - ${priceRange[1]}
-                    </label>
-                    <Slider value={priceRange} onValueChange={setPriceRange} max={200} step={10} className="w-full" />
-                  </div>
+            {/* Sort */}
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger>
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="relevance">Relevance</SelectItem>
+                <SelectItem value="price-low">Price: Low to High</SelectItem>
+                <SelectItem value="price-high">Price: High to Low</SelectItem>
+                <SelectItem value="name">Name A-Z</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-                  {/* Sort */}
-                  <Select value={sortBy} onValueChange={setSortBy}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sort by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="relevance">Relevance</SelectItem>
-                      <SelectItem value="price-low">Price: Low to High</SelectItem>
-                      <SelectItem value="price-high">Price: High to Low</SelectItem>
-                      <SelectItem value="name">Name A-Z</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Product Grid */}
-                <div className="p-6 overflow-y-auto h-full">
-                  <div className="grid grid-cols-1 gap-4">
-                    {sortedProducts.map((product) => (
-                      <Card key={product.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-4">
-                            <img
-                              src={product.image || "/placeholder.svg"}
-                              alt={product.title}
-                              className="w-16 h-16 object-cover rounded-lg"
-                            />
-                            <div className="flex-1">
-                              <h3 className="font-medium text-gray-900 dark:text-white">{product.title}</h3>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">{product.supplier}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge variant="secondary">{product.category}</Badge>
-                                <Badge variant="outline">{product.region}</Badge>
-                                {!product.inStock && <Badge variant="destructive">Out of Stock</Badge>}
-                                {product.inStock && product.stockCount < 10 && <Badge variant="secondary">Low Stock</Badge>}
-                              </div>
-                              <p className="text-lg font-semibold text-indigo-600 dark:text-indigo-400 mt-1">
-                                ${product.basePrice}
-                              </p>
-                            </div>
-                            <Button
-                              onClick={() => handleAddToShop(product)}
-                              disabled={!product.inStock || shopProducts.some((p) => p.originalId === product.id)}
-                              size="sm"
-                            >
-                              {shopProducts.some((p) => p.originalId === product.id) ? "Added" : "Add to Shop"}
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Pane - My Shop */}
-              <div className="w-1/2 bg-gray-50 dark:bg-gray-900">
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      My Shop ({shopProducts.length} products)
-                    </h2>
-                    <div className="flex items-center gap-3">
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {shopProducts.filter((p) => p.published).length} published
+          {/* Product Grid */}
+          <div className="p-6 overflow-y-auto h-full">
+            <div className="grid grid-cols-1 gap-4">
+              {sortedProducts.map((product) => (
+                <Card key={product.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={product.image || "/placeholder.svg"}
+                        alt={product.title}
+                        className="w-16 h-16 object-cover rounded-lg"
+                      />
+                      <div className="flex-1">
+                        <h3 className="font-medium text-gray-900 dark:text-white">{product.title}</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{product.supplier}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="secondary">{product.category}</Badge>
+                          <Badge variant="outline">{product.region}</Badge>
+                          {!product.inStock && <Badge variant="destructive">Out of Stock</Badge>}
+                          {product.inStock && product.stockCount < 10 && <Badge variant="secondary">Low Stock</Badge>}
+                        </div>
+                        <p className="text-lg font-semibold text-indigo-600 dark:text-indigo-400 mt-1">
+                          ${product.basePrice}
+                        </p>
                       </div>
-                      <Button onClick={handleBulkPublish} disabled={selectedProducts.length === 0} size="sm">
-                        Bulk Publish ({selectedProducts.length})
-                      </Button>
-                      <Button variant="outline" onClick={handleBulkUnpublish} disabled={selectedProducts.length === 0} size="sm">
-                        Bulk Unpublish
+                      <Button
+                        onClick={() => handleAddToShop(product)}
+                        disabled={!product.inStock || shopProducts.some((p) => p.originalId === product.id)}
+                        size="sm"
+                      >
+                        {shopProducts.some((p) => p.originalId === product.id) ? "Added" : "Add to Shop"}
                       </Button>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
 
-                <div className="p-6 overflow-y-auto h-full">
-                  {shopProducts.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                          />
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Your shop is empty</h3>
-                      <p className="text-gray-600 dark:text-gray-400">
-                        Add products from the supplier catalog to get started
-                      </p>
-                    </div>
-                  ) : (
-                    <DragDropContext onDragEnd={handleDragEnd}>
-                      <Droppable droppableId="shop-products">
-                        {(provided) => (
-                          <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
-                            {shopProducts.map((product, index) => (
-                              <Draggable key={product.id} draggableId={product.id} index={index}>
-                                {(provided, snapshot) => (
-                                  <Card
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    className={`${snapshot.isDragging ? "shadow-lg" : ""} transition-shadow`}
-                                  >
-                                    <CardContent className="p-4">
-                                      <div className="flex items-start gap-4">
-                                        {/* Drag Handle */}
-                                        <div
-                                          {...provided.dragHandleProps}
-                                          className="mt-2 cursor-grab active:cursor-grabbing"
-                                        >
-                                          <svg
-                                            className="w-5 h-5 text-gray-400"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            viewBox="0 0 24 24"
-                                          >
-                                            <path
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              strokeWidth={2}
-                                              d="M4 8h16M4 16h16"
-                                            />
-                                          </svg>
-                                        </div>
-
-                                        {/* Checkbox */}
-                                        <input
-                                          type="checkbox"
-                                          checked={selectedProducts.includes(product.id)}
-                                          onChange={(e) => {
-                                            if (e.target.checked) {
-                                              setSelectedProducts([...selectedProducts, product.id])
-                                            } else {
-                                              setSelectedProducts(selectedProducts.filter((id) => id !== product.id))
-                                            }
-                                          }}
-                                          className="mt-2 rounded border-gray-300"
-                                        />
-
-                                        {/* Product Image */}
-                                        <img
-                                          src={product.image || "/placeholder.svg"}
-                                          alt={product.title}
-                                          className="w-16 h-16 object-cover rounded-lg"
-                                        />
-
-                                        {/* Product Details */}
-                                        <div className="flex-1 space-y-3">
-                                          <div>
-                                            <Input
-                                              value={product.customTitle}
-                                              onChange={(e) =>
-                                                handleUpdateShopProduct(product.id, { customTitle: e.target.value })
-                                              }
-                                              placeholder="Custom title"
-                                              className="font-medium"
-                                            />
-                                            <p className="text-xs text-gray-500 mt-1">Original: {product.title}</p>
-                                          </div>
-
-                                          <Textarea
-                                            value={product.customDescription}
-                                            onChange={(e) =>
-                                              handleUpdateShopProduct(product.id, { customDescription: e.target.value })
-                                            }
-                                            placeholder="Add your personal description..."
-                                            rows={2}
-                                            className="text-sm"
-                                          />
-
-                                          <div className="flex items-center gap-4">
-                                            <div>
-                                              <label className="text-xs text-gray-600 dark:text-gray-400">Sale Price</label>
-                                              <Input
-                                                type="number"
-                                                value={product.salePrice}
-                                                onChange={(e) =>
-                                                  handleUpdateShopProduct(product.id, {
-                                                    salePrice: Number.parseFloat(e.target.value),
-                                                  })
-                                                }
-                                                min={product.basePrice}
-                                                step="0.01"
-                                                className="w-24"
-                                              />
-                                              <p className="text-xs text-gray-500">Min: ${product.basePrice}</p>
-                                            </div>
-
-                                            <div className="flex items-center gap-2">
-                                              <Switch
-                                                checked={product.published}
-                                                onCheckedChange={(checked) =>
-                                                  handleUpdateShopProduct(product.id, { published: checked })
-                                                }
-                                              />
-                                              <span className="text-sm text-gray-600 dark:text-gray-400">
-                                                {product.published ? "Published" : "Draft"}
-                                              </span>
-                                            </div>
-
-                                            <div className="flex items-center gap-2">
-                                              <Switch
-                                                checked={product.featured}
-                                                onCheckedChange={(checked) =>
-                                                  handleUpdateShopProduct(product.id, { featured: checked })
-                                                }
-                                              />
-                                              <span className="text-sm text-gray-600 dark:text-gray-400">
-                                                Featured
-                                              </span>
-                                            </div>
-                                          </div>
-
-                                          <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                              <Badge variant="secondary">{product.category}</Badge>
-                                              <Badge variant="outline">{product.region}</Badge>
-                                              {product.published && (
-                                                <Badge className="bg-green-100 text-green-800">Live</Badge>
-                                              )}
-                                              {product.featured && (
-                                                <Badge className="bg-amber-100 text-amber-800">Featured</Badge>
-                                              )}
-                                            </div>
-                                            <Button
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() => handleRemoveFromShop(product.id)}
-                                              className="text-red-600 hover:text-red-700"
-                                            >
-                                              Remove
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                )}
-                              </Draggable>
-                            ))}
-                            {provided.placeholder}
-                          </div>
-                        )}
-                      </Droppable>
-                    </DragDropContext>
-                  )}
-                </div>
+        {/* Right Pane - My Shop */}
+        <div className="w-1/2 bg-gray-50 dark:bg-gray-900">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                My Shop ({shopProducts.length} products)
+              </h2>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                {shopProducts.filter((p) => p.published).length} published
               </div>
             </div>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="setup" className="space-y-6">
-            <ShopSetup
-              profile={mockInfluencerProfile}
-              onSave={handleSaveProfile}
-            />
-          </TabsContent>
-        </Tabs>
+          <div className="p-6 overflow-y-auto h-full">
+            {shopProducts.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Your shop is empty</h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Add products from the supplier catalog to get started
+                </p>
+              </div>
+            ) : (
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="shop-products">
+                  {(provided) => (
+                    <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
+                      {shopProducts.map((product, index) => (
+                        <Draggable key={product.id} draggableId={product.id} index={index}>
+                          {(provided, snapshot) => (
+                            <Card
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`${snapshot.isDragging ? "shadow-lg" : ""} transition-shadow`}
+                            >
+                              <CardContent className="p-4">
+                                <div className="flex items-start gap-4">
+                                  {/* Drag Handle */}
+                                  <div
+                                    {...provided.dragHandleProps}
+                                    className="mt-2 cursor-grab active:cursor-grabbing"
+                                  >
+                                    <svg
+                                      className="w-5 h-5 text-gray-400"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M4 8h16M4 16h16"
+                                      />
+                                    </svg>
+                                  </div>
+
+                                  {/* Checkbox */}
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedProducts.includes(product.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedProducts([...selectedProducts, product.id])
+                                      } else {
+                                        setSelectedProducts(selectedProducts.filter((id) => id !== product.id))
+                                      }
+                                    }}
+                                    className="mt-2 rounded border-gray-300"
+                                  />
+
+                                  {/* Product Image */}
+                                  <img
+                                    src={product.image || "/placeholder.svg"}
+                                    alt={product.title}
+                                    className="w-16 h-16 object-cover rounded-lg"
+                                  />
+
+                                  {/* Product Details */}
+                                  <div className="flex-1 space-y-3">
+                                    <div>
+                                      <Input
+                                        value={product.customTitle}
+                                        onChange={(e) =>
+                                          handleUpdateShopProduct(product.id, { customTitle: e.target.value })
+                                        }
+                                        placeholder="Custom title"
+                                        className="font-medium"
+                                      />
+                                      <p className="text-xs text-gray-500 mt-1">Original: {product.title}</p>
+                                    </div>
+
+                                    <Textarea
+                                      value={product.customDescription}
+                                      onChange={(e) =>
+                                        handleUpdateShopProduct(product.id, { customDescription: e.target.value })
+                                      }
+                                      placeholder="Add your personal description..."
+                                      rows={2}
+                                      className="text-sm"
+                                    />
+
+                                    <div className="flex items-center gap-4">
+                                      <div>
+                                        <label className="text-xs text-gray-600 dark:text-gray-400">Sale Price</label>
+                                        <Input
+                                          type="number"
+                                          value={product.salePrice}
+                                          onChange={(e) =>
+                                            handleUpdateShopProduct(product.id, {
+                                              salePrice: Number.parseFloat(e.target.value),
+                                            })
+                                          }
+                                          min={product.basePrice}
+                                          step="0.01"
+                                          className="w-24"
+                                        />
+                                        <p className="text-xs text-gray-500">Min: ${product.basePrice}</p>
+                                      </div>
+
+                                      <div className="flex items-center gap-2">
+                                        <Switch
+                                          checked={product.published}
+                                          onCheckedChange={(checked) =>
+                                            handleUpdateShopProduct(product.id, { published: checked })
+                                          }
+                                        />
+                                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                                          {product.published ? "Published" : "Draft"}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant="secondary">{product.category}</Badge>
+                                        <Badge variant="outline">{product.region}</Badge>
+                                        {product.published && (
+                                          <Badge className="bg-green-100 text-green-800">Live</Badge>
+                                        )}
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleRemoveFromShop(product.id)}
+                                        className="text-red-600 hover:text-red-700"
+                                      >
+                                        Remove
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

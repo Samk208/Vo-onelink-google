@@ -142,15 +142,13 @@ export default function SignUpPage() {
 
       toast({
         title: "Account created successfully!",
-        description: "Welcome to One-Link! You can now start exploring.",
+        description: "Welcome to One-Link! Let's set up your profile.",
       })
 
       const redirectPath =
-        result.role === "supplier"
-          ? "/dashboard/supplier"
-          : result.role === "influencer"
-            ? "/dashboard/influencer"
-            : "/shop/example-handle"
+        result.role === "customer"
+          ? "/shop/example-handle"
+          : `/auth/onboarding?role=${result.role === "supplier" ? "brand" : result.role}`
 
       router.push(redirectPath)
     } catch (err) {
