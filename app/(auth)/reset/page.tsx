@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { toast } from "@/hooks/use-toast"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 const resetSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -61,6 +62,7 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState("")
+  const supabase = createClientComponentClient()
 
   const form = useForm<ResetForm>({
     resolver: zodResolver(resetSchema),
@@ -73,34 +75,20 @@ export default function ResetPasswordPage() {
     setIsLoading(true)
     setError("")
 
-    try {
-      const response = await fetch("/api/auth/reset", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      })
+    const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
+      redirectTo: `${location.origin}/update-password`,
+    })
 
-      const result = await response.json()
+    setIsLoading(false)
 
-      if (!result.ok) {
-        if (result.fieldErrors?.email) {
-          form.setError("email", { message: result.fieldErrors.email })
-        }
-        setError(result.error || "Something went wrong. Please try again.")
-        return
-      }
-
+    if (error) {
+      setError(error.message)
+    } else {
       setIsSuccess(true)
       toast({
         title: "Reset link sent!",
-        description: result.message || "If an account exists, you'll receive reset instructions via email.",
+        description: "If an account exists, you'll receive reset instructions via email.",
       })
-    } catch (err) {
-      setError("Something went wrong. Please try again.")
-    } finally {
-      setIsLoading(false)
     }
   }
 

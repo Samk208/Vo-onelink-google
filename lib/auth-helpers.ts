@@ -29,7 +29,7 @@ export function hasRole(user: User | null, allowedRoles: UserRole[]): boolean {
   return allowedRoles.includes(user.role)
 }
 
-// Create user in database after Supabase auth
+// Create user profile in database
 export async function createUserProfile(
   userId: string,
   email: string,
@@ -37,10 +37,13 @@ export async function createUserProfile(
   role: UserRole
 ): Promise<User | null> {
   try {
+    console.log('Creating user profile with:', { userId, email, name, role })
+    
+    // Use supabaseAdmin to bypass RLS for user creation
     const { data: user, error } = await supabaseAdmin
       .from('users')
       .insert({
-        id: userId,
+        id: userId, // Explicitly set the ID to match the auth user ID
         email,
         name,
         role,
@@ -56,9 +59,10 @@ export async function createUserProfile(
       return null
     }
 
+    console.log('User profile created successfully:', user)
     return user
   } catch (error) {
-    console.error('Error creating user profile:', error)
+    console.error('Unexpected error creating user profile:', error)
     return null
   }
 }
@@ -122,16 +126,20 @@ export function requiresVerification(role: UserRole): boolean {
 }
 
 // Get user by email
-export async function getUserByEmail(email: string): Promise<User | null> {
+export async function getUserByEmail(email: string): Promise<{ data: User | null; error?: any }> {
   try {
-    const { data: user } = await supabaseAdmin
+    const { data: user, error } = await supabaseAdmin
       .from('users')
       .select('*')
       .eq('email', email)
       .single()
 
-    return user
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
+      return { data: null, error }
+    }
+
+    return { data: user, error: null }
   } catch (error) {
-    return null
+    return { data: null, error }
   }
 }

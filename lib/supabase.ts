@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { createServerClient, type CookieOptions } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -11,22 +11,10 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Server-side Supabase client (for API routes)
-export const createServerSupabaseClient = () => {
-  const cookieStore = cookies()
+export const createServerSupabaseClient = async () => {
+  const cookieStore = await cookies()
   
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value
-      },
-      set(name: string, value: string, options: CookieOptions) {
-        cookieStore.set({ name, value, ...options })
-      },
-      remove(name: string, options: CookieOptions) {
-        cookieStore.set({ name, value: '', ...options })
-      },
-    },
-  })
+  return createRouteHandlerClient({ cookies: () => cookieStore })
 }
 
 // Service role client (for admin operations)
@@ -38,26 +26,13 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 })
 
 // Middleware helper for auth
-export const createMiddlewareSupabaseClient = (req: NextRequest, res: NextResponse) => {
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get(name: string) {
-        return req.cookies.get(name)?.value
-      },
-      set(name: string, value: string, options: CookieOptions) {
-        req.cookies.set({
-          name,
-          value,
-          ...options,
-        })
-      },
-      remove(name: string, options: CookieOptions) {
-        req.cookies.set({
-          name,
-          value: '',
-          ...options,
-        })
-      },
-    },
-  })
+export const createMiddlewareSupabaseClient = (req: NextRequest) => {
+  let res = NextResponse.next({ request: { headers: req.headers } })
+
+  return {
+    supabase: createRouteHandlerClient({
+      cookies: () => req.cookies
+    }),
+    response: res,
+  }
 }

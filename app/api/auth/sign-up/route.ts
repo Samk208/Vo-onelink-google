@@ -1,86 +1,119 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient, supabaseAdmin } from "@/lib/supabase"
 import { signUpSchema } from "@/lib/validators"
-import { createAuthErrorResponse, createAuthSuccessResponse, createUserProfile } from "@/lib/auth-helpers"
+import { createAuthErrorResponse, createAuthSuccessResponse, createUserProfile, getUserByEmail } from "@/lib/auth-helpers"
 import { type AuthResponse } from "@/lib/types"
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    
-    // Validate input
-    const validation = signUpSchema.safeParse(body)
-    if (!validation.success) {
-      const errors: Record<string, string> = {}
-      validation.error.errors.forEach((error) => {
-        errors[error.path[0] as string] = error.message
-      })
-      
+    // Test Supabase connection first
+    console.log('Testing Supabase connection...')
+    console.log('Environment variables check:')
+    console.log('NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING')
+    console.log('NEXT_PUBLIC_SUPABASE_ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'SET' : 'MISSING')
+    console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'MISSING')
+
+    // Test supabaseAdmin connection
+    try {
+      const { data, error } = await supabaseAdmin.from('users').select('count').limit(1)
+      if (error) {
+        console.error('Supabase admin connection test failed:', error)
+        return NextResponse.json(
+          createAuthErrorResponse("Database connection failed. Please check configuration."),
+          { status: 500 }
+        )
+      }
+      console.log('Supabase admin connection test successful')
+    } catch (connError) {
+      console.error('Supabase admin connection error:', connError)
       return NextResponse.json(
-        createAuthErrorResponse("Please check your input and try again.", errors),
-        { status: 400 }
+        createAuthErrorResponse("Database connection error. Please check configuration."),
+        { status: 500 }
       )
     }
 
-    const { email, password, name, role } = validation.data
-    const supabase = createServerSupabaseClient()
+    let body
+    try {
+      body = await request.json()
+    } catch (e) {
+      console.error('Failed to parse request body:', e)
+      return NextResponse.json({ ok: false, error: "Invalid request body" }, { status: 400 })
+    }
+
+    console.log('Sign-up request body:', { ...body, password: '[REDACTED]', confirmPassword: '[REDACTED]' })
+
+    const validation = signUpSchema.safeParse(body)
+
+    if (!validation.success) {
+      console.error('Validation failed:', validation.error.flatten())
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Invalid input. Please check your details and try again.",
+          fieldErrors: validation.error.flatten().fieldErrors,
+        },
+        { status: 400 },
+      )
+    }
+
+    const { email, password, role, firstName, lastName } = validation.data
+    const name = `${firstName} ${lastName}`
+
+    console.log('Processing sign-up for:', { email, role, name })
 
     // Check if user already exists
-    const { data: existingUser } = await supabaseAdmin
-      .from('users')
-      .select('id')
-      .eq('email', email)
-      .single()
+    console.log('Checking if user exists...')
+    const { data: existingUser, error: existingUserError } = await getUserByEmail(email)
+
+    if (existingUserError) {
+      console.error('Error checking existing user:', existingUserError)
+      return NextResponse.json(
+        createAuthErrorResponse("Something went wrong. Please try again."),
+        { status: 500 }
+      )
+    }
 
     if (existingUser) {
+      console.log('User already exists')
       return NextResponse.json(
-        createAuthErrorResponse(
-          "Unable to create account. Please try a different email address.",
-          { email: "This email cannot be used" }
-        ),
+        createAuthErrorResponse("A user with this email already exists."),
         { status: 409 }
       )
     }
 
-    // Create auth user with Supabase
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // Try using supabaseAdmin for auth operations to bypass client issues
+    console.log('Creating Supabase auth user with admin client...')
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      options: {
-        data: {
-          name,
-          role,
-        }
+      email_confirm: true, // Skip email confirmation
+      user_metadata: {
+        name,
+        role,
       }
     })
 
     if (authError) {
-      if (authError.message.includes('already registered')) {
-        return NextResponse.json(
-          createAuthErrorResponse(
-            "Unable to create account. Please try a different email address.",
-            { email: "This email cannot be used" }
-          ),
-          { status: 409 }
-        )
-      }
-      
+      console.error('Supabase admin auth error:', authError)
       return NextResponse.json(
-        createAuthErrorResponse("Unable to create account. Please try again."),
+        createAuthErrorResponse(`Unable to create account: ${authError.message}`),
         { status: 400 }
       )
     }
 
     if (!authData.user) {
+      console.error('No user returned from Supabase admin auth')
       return NextResponse.json(
         createAuthErrorResponse("Account creation failed. Please try again."),
         { status: 400 }
       )
     }
 
+    console.log('Auth user created with admin client, creating profile...')
     // Create user profile in database
     const user = await createUserProfile(authData.user.id, email, name, role)
     if (!user) {
+      console.error('Failed to create user profile')
       // Clean up auth user if profile creation fails
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return NextResponse.json(
@@ -89,11 +122,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log('User profile created successfully')
     return NextResponse.json(
-      createAuthSuccessResponse(user, "Account created successfully! Please check your email to verify your account.")
+      createAuthSuccessResponse(user, "Account created successfully! You can now sign in.")
     )
   } catch (error) {
-    console.error('Sign-up error:', error)
+    console.error('Unexpected sign-up error:', error)
     return NextResponse.json(
       createAuthErrorResponse("Something went wrong. Please try again."),
       { status: 500 }
