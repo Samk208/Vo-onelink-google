@@ -26,7 +26,7 @@ export async function GET(
       )
     }
 
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
     let query = supabase
       .from('orders')
       .select('*')
@@ -102,7 +102,7 @@ export async function PUT(
     }
 
     const { status, notes } = updateValidation.data
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
 
     const { data: order, error } = await supabase
       .from('orders')

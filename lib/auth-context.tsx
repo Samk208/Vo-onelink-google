@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setIsLoading(true)
       if (event === "SIGNED_IN" && session) {
         await fetchUserProfile(session.user)
@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     checkSession()
 
-    return () => authListener?.unsubscribe()
+    return () => subscription.unsubscribe()
   }, [])
 
   const fetchUserProfile = async (authUser: User) => {
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (data.user) {
       await fetchUserProfile(data.user)
-      return { success: true, user }
+      return { success: true, user: user || undefined }
     }
 
     return { success: false, error: "An unknown error occurred." }

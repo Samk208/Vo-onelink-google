@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { page = 1, limit = 20, search, category, region, active, inStock } = validation.data
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
 
     let query = supabase
       .from('products')
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     const productData = validation.data
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
 
     // Check for duplicate SKU if provided
     if (productData.sku) {

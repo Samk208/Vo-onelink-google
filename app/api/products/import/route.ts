@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { csvData, dryRun = false } = validation.data
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
 
     // Parse CSV data (expecting header row)
     const records = parse(csvData, {

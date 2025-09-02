@@ -29,6 +29,17 @@ export interface User {
   updatedAt: string
 }
 
+export interface UserProfile {
+  id: string
+  email: string
+  name: string
+  role: UserRole
+  avatar?: string
+  verified?: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface Product {
   id: string
   title: string

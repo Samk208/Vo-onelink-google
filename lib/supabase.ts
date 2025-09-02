@@ -10,10 +10,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 // Client-side Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Server-side Supabase client (for API routes)
-export const createServerSupabaseClient = async () => {
-  const cookieStore = await cookies()
-  return createRouteHandlerClient({ cookies: () => cookieStore })
+// Server-side Supabase client (for API routes) - handles async cookies
+export const createServerSupabaseClient = () => {
+  return createRouteHandlerClient({ cookies })
 }
 
 // Service role client (for admin operations)
@@ -30,7 +29,7 @@ export const createMiddlewareSupabaseClient = (req: NextRequest) => {
 
   return {
     supabase: createRouteHandlerClient({
-      cookies: () => req.cookies
+      cookies: () => req.cookies as any
     }),
     response: res,
   }
