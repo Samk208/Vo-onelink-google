@@ -10,10 +10,12 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import { Download, FileText, X, Globe, CheckCircle, AlertCircle } from "lucide-react"
+import { Product } from "@/lib/types"
 
 interface ExportProductsDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  products?: Product[]
 }
 
 const categories = ["All", "Clothing", "Beauty", "Jewelry", "Home", "Electronics"]

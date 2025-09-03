@@ -1,11 +1,10 @@
 import crypto from 'crypto'
 
 const ALGORITHM = 'aes-256-gcm'
-const IV_LENGTH = 16 // For GCM, this is always 16
-const SALT_LENGTH = 64
-const TAG_LENGTH = 16
+const SALT_LENGTH = 16
+const IV_LENGTH = 12
 const TAG_POSITION = SALT_LENGTH + IV_LENGTH
-const ENCRYPTED_POSITION = TAG_POSITION + TAG_LENGTH
+const ENCRYPTED_POSITION = TAG_POSITION + 16
 
 /**
  * Get encryption key from environment or generate a secure default
@@ -31,7 +30,7 @@ export function encryptSensitiveData(text: string): string {
     // Derive key using PBKDF2
     const derivedKey = crypto.pbkdf2Sync(key, salt, 100000, 32, 'sha256')
     
-    const cipher = crypto.createCipher(ALGORITHM, derivedKey)
+    const cipher = crypto.createCipheriv(ALGORITHM, derivedKey, iv)
     cipher.setAAD(salt)
     
     let encrypted = cipher.update(text, 'utf8', 'hex')
@@ -64,7 +63,7 @@ export function decryptSensitiveData(encryptedData: string): string {
     // Derive key using PBKDF2
     const derivedKey = crypto.pbkdf2Sync(key, salt, 100000, 32, 'sha256')
     
-    const decipher = crypto.createDecipher(ALGORITHM, derivedKey)
+    const decipher = crypto.createDecipheriv(ALGORITHM, derivedKey, iv)
     decipher.setAAD(salt)
     decipher.setAuthTag(tag)
     

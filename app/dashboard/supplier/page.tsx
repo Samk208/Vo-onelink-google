@@ -15,7 +15,8 @@ import {
   RefreshCw,
   Plus,
   FileText,
-  BarChart3
+  BarChart3,
+  Settings
 } from 'lucide-react'
 
 interface SupplierStats {

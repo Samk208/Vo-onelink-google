@@ -1,8 +1,7 @@
 "use client"
 
-import type React, { ChangeEvent } from "react"
+import React, { useState, useCallback, useMemo, ChangeEvent } from "react"
 
-import { useState, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -46,6 +45,7 @@ interface ImportSummary {
 interface ImportProductsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccess?: () => void
 }
 
 export function ImportProductsDialog({ open, onOpenChange }: ImportProductsDialogProps) {
@@ -455,7 +455,11 @@ export function ImportProductsDialog({ open, onOpenChange }: ImportProductsDialo
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="flex items-center space-x-2">
-                    <Checkbox id="dry-run" checked={dryRun} onCheckedChange={setDryRun} />
+                    <Checkbox 
+                      id="dry-run" 
+                      checked={dryRun} 
+                      onCheckedChange={(checked) => setDryRun(checked === true)} 
+                    />
                     <label htmlFor="dry-run" className="text-sm font-medium">
                       Dry run (preview only)
                     </label>

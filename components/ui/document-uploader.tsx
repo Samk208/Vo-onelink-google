@@ -460,7 +460,11 @@ export function DocumentUploader({ userType, onDocumentUpdate, onAllComplete, cl
                   ) : (
                     <>
                       <input
-                        ref={(el) => (fileInputRefs.current[doc.id] = el)}
+                        ref={(el) => {
+                          if (el) {
+                            fileInputRefs.current[doc.id] = el
+                          }
+                        }}
                         type="file"
                         accept={doc.acceptedTypes.join(",")}
                         onChange={(e) => {

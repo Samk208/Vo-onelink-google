@@ -336,7 +336,11 @@ export default function ReviewStep({ data, onSubmit, onPrev, isLoading }: Review
         <CardContent className="space-y-4">
           <div className="space-y-4">
             <div className="flex items-start space-x-3">
-              <Checkbox checked={agreedToTerms} onCheckedChange={setAgreedToTerms} className="mt-1" />
+              <Checkbox 
+                checked={agreedToTerms} 
+                onCheckedChange={(checked) => setAgreedToTerms(checked === true)} 
+                className="mt-1" 
+              />
               <div className="space-y-1 leading-none">
                 <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   I agree to the{" "}
@@ -353,7 +357,11 @@ export default function ReviewStep({ data, onSubmit, onPrev, isLoading }: Review
             </div>
 
             <div className="flex items-start space-x-3">
-              <Checkbox checked={agreedToPrivacy} onCheckedChange={setAgreedToPrivacy} className="mt-1" />
+              <Checkbox 
+                checked={agreedToPrivacy} 
+                onCheckedChange={(checked) => setAgreedToPrivacy(checked === true)} 
+                className="mt-1" 
+              />
               <div className="space-y-1 leading-none">
                 <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   I agree to the{" "}
@@ -370,7 +378,11 @@ export default function ReviewStep({ data, onSubmit, onPrev, isLoading }: Review
             </div>
 
             <div className="flex items-start space-x-3">
-              <Checkbox checked={agreedToAgreement} onCheckedChange={setAgreedToAgreement} className="mt-1" />
+              <Checkbox 
+                checked={agreedToAgreement} 
+                onCheckedChange={(checked) => setAgreedToAgreement(checked === true)} 
+                className="mt-1" 
+              />
               <div className="space-y-1 leading-none">
                 <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   I agree to the{" "}
