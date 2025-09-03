@@ -127,37 +127,19 @@ export const columns: ColumnDef<Product>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem asChild>
-              <Link href={`/dashboard/supplier/products/${product.id}`}>Edit</Link>
+            <DropdownMenuItem onClick={() => onView(row.original)}>
+              View details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEdit(row.original)}>
+              Edit product
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <DropdownMenuItem
-                  className="text-red-600 focus:text-red-700 focus:bg-red-50"
-                  onSelect={(e) => e.preventDefault()} // Prevent menu from closing
-                >
-                  Delete
-                </DropdownMenuItem>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the product "{product.title}".
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-red-600 hover:bg-red-700"
-                    onClick={() => meta.deleteProduct(product.id)}
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <DropdownMenuItem 
+              onClick={() => onDelete(row.original)}
+              className="text-red-600"
+            >
+              Delete product
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       )

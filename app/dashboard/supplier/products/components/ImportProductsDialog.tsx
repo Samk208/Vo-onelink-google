@@ -174,46 +174,36 @@ export function ImportProductsDialog({ open, onOpenChange }: ImportProductsDialo
     }
   }
 
-  const handleFileUpload = async (uploadedFile: File) => {
-    setIsProcessing(true)
-    setStep("processing")
-    setProgress(0)
-
-    // Simulate file parsing progress
-    const progressInterval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(progressInterval)
-          return 90
-        }
-        return prev + 10
-      })
-    }, 200)
-
+  const handleFileUpload = useCallback(async (file: File) => {
     try {
-      // Simulate API call to parse CSV
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      setImportData(mockImportResults)
-      setProgress(100)
-      setStep("preview")
-
-      toast({
-        title: "CSV parsed successfully",
-        description: `Found ${mockImportResults.length} rows to process.`,
-      })
+      setUploading(true)
+      setUploadError('')
+      
+      // Simulate file upload
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // Add file to uploaded files
+      const newFile = {
+        id: crypto.randomUUID(),
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        status: 'uploaded' as const
+      }
+      
+      setUploadedFiles(prev => [...prev, newFile])
+      setUploadSuccess(`Successfully uploaded ${file.name}`)
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setUploadSuccess(''), 3000)
+      
     } catch (error) {
-      toast({
-        title: "Parse error",
-        description: "Failed to parse CSV file. Please check the format.",
-        variant: "destructive",
-      })
-      setStep("upload")
+      console.error('Upload error:', error)
+      setUploadError('Failed to upload file')
     } finally {
-      setIsProcessing(false)
-      clearInterval(progressInterval)
+      setUploading(false)
     }
-  }
+  }, [])
 
   const handleImport = async () => {
     if (hasErrors && !dryRun) {
@@ -263,6 +253,7 @@ export function ImportProductsDialog({ open, onOpenChange }: ImportProductsDialo
           : `Successfully processed ${summary.total} products.`,
       })
     } catch (error) {
+      console.error('Import error:', error)
       toast({
         title: "Import failed",
         description: "An error occurred during import. Please try again.",

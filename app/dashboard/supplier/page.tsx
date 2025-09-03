@@ -1,23 +1,17 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import { Plus, BarChart3, Package, Settings } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { 
-  Package, 
-  DollarSign, 
-  TrendingUp, 
-  Users, 
-  ShoppingCart, 
-  Star,
-  RefreshCw,
-  Plus,
-  FileText,
-  BarChart3,
-  Settings
-} from 'lucide-react'
+import { Progress } from '@/components/ui/progress'
+import { useAuth } from '@/lib/auth-context'
+import { useRouter } from 'next/navigation'
+import { useToast } from '@/hooks/use-toast'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { Skeleton } from '@/components/ui/skeleton'
+import Link from 'next/link'
 
 interface SupplierStats {
   totalProducts: number
@@ -89,8 +83,13 @@ export default function SupplierDashboard() {
       } else {
         setError(result.error || 'Failed to fetch dashboard data')
       }
-    } catch (err) {
-      setError('Network error occurred')
+    } catch (error) {
+      console.error('Error fetching supplier stats:', error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch supplier statistics",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -230,7 +229,7 @@ export default function SupplierDashboard() {
       {/* Today's Performance */}
       <Card>
         <CardHeader>
-          <CardTitle>Today's Performance</CardTitle>
+          <CardTitle>Today&apos;s Performance</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">

@@ -28,13 +28,17 @@ import { Input } from '@/components/ui/input'
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  meta?: any
+  onView?: (data: TData) => void
+  onEdit?: (data: TData) => void
+  onDelete?: (data: TData) => void
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
-  meta,
+  onView,
+  onEdit,
+  onDelete
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])

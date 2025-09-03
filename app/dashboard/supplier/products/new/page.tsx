@@ -1,33 +1,17 @@
 "use client"
 
-import type React from "react"
-import { useState, ChangeEvent } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
-import { Badge } from "@/components/ui/badge"
-import { Slider } from "@/components/ui/slider"
-import { Separator } from "@/components/ui/separator"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import {
-  Upload,
-  X,
-  GripVertical,
-  Save,
-  Eye,
-  AlertCircle,
-  CheckCircle,
-  DollarSign,
-  Package,
-  Globe,
-  ArrowLeft,
-} from "lucide-react"
-import Link from "next/link"
-import Image from "next/image"
+import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useAuth } from '@/lib/auth-context'
+import { useRouter } from 'next/navigation'
+import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/lib/supabase'
+import { Product } from '@/lib/types'
 
 const categories = ["Clothing", "Beauty", "Jewelry", "Home", "Electronics"]
 const regions = ["Global", "KR", "JP", "CN"]
@@ -63,11 +47,11 @@ export default function NewProductPage() {
 
   const [draggedImage, setDraggedImage] = useState<number | null>(null)
 
-  const updateField = (field: keyof ProductFormData, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-    // Clear error when user starts typing
+  const updateField = (field: keyof ProductFormData, value: string | number | boolean | string[]) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    // Clear error for this field
     if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: "" }))
+      setErrors(prev => ({ ...prev, [field]: '' }))
     }
   }
 
