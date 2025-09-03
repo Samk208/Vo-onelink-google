@@ -113,7 +113,7 @@ async function handleCheckoutSessionCompleted(session: any) {
 
     console.log('Order created successfully:', order.id)
 
-    // Update product stock counts and create commissions
+    // Process each item for stock updates and commission logging
     for (const item of items) {
       // Update stock count
       const { error: stockError } = await supabaseAdmin.rpc('decrement_stock', {
@@ -126,24 +126,79 @@ async function handleCheckoutSessionCompleted(session: any) {
         // Continue processing other items even if one fails
       }
 
-      // Create commission record
-      const commissionAmount = (item.price * item.quantity * item.commission) / 100
+      // Check if product was purchased through an influencer shop
+      const { data: shopProduct } = await supabaseAdmin
+        .from('influencer_shop_products')
+        .select('influencer_id, sale_price, custom_title')
+        .eq('product_id', item.productId)
+        .eq('published', true)
+        .single()
 
-      const { error: commissionError } = await supabaseAdmin
+      let influencerId = null
+      let actualSalePrice = item.price
+
+      if (shopProduct) {
+        influencerId = shopProduct.influencer_id
+        actualSalePrice = shopProduct.sale_price || item.price
+        console.log(`Product ${item.productId} purchased through influencer ${influencerId} shop`)
+      }
+
+      // Calculate commissions
+      const itemRevenue = actualSalePrice * item.quantity
+      const supplierCommissionAmount = (itemRevenue * item.commission) / 100
+      const supplierNetRevenue = itemRevenue - supplierCommissionAmount
+
+      // Create supplier commission record
+      const { error: supplierCommissionError } = await supabaseAdmin
         .from('commissions')
         .insert({
           order_id: order.id,
           supplier_id: item.supplierId,
           product_id: item.productId,
-          amount: commissionAmount,
+          amount: supplierCommissionAmount,
           rate: item.commission,
           status: 'pending',
           created_at: new Date().toISOString(),
         })
 
-      if (commissionError) {
-        console.error(`Failed to create commission for product ${item.productId}:`, commissionError)
+      if (supplierCommissionError) {
+        console.error(`Failed to create supplier commission for product ${item.productId}:`, supplierCommissionError)
+      } else {
+        console.log(`💰 Supplier commission logged: $${supplierCommissionAmount} (${item.commission}%) for product ${item.productId}`)
       }
+
+      // Create influencer commission record if purchased through influencer shop
+      if (influencerId) {
+        // Influencer gets the difference between sale price and base price
+        const influencerCommissionAmount = (actualSalePrice - item.price) * item.quantity
+        
+        if (influencerCommissionAmount > 0) {
+          const { error: influencerCommissionError } = await supabaseAdmin
+            .from('commissions')
+            .insert({
+              order_id: order.id,
+              influencer_id: influencerId,
+              supplier_id: item.supplierId,
+              product_id: item.productId,
+              amount: influencerCommissionAmount,
+              rate: ((actualSalePrice - item.price) / item.price) * 100, // Calculate effective rate
+              status: 'pending',
+              created_at: new Date().toISOString(),
+            })
+
+          if (influencerCommissionError) {
+            console.error(`Failed to create influencer commission for product ${item.productId}:`, influencerCommissionError)
+          } else {
+            console.log(`🌟 Influencer commission logged: $${influencerCommissionAmount} for influencer ${influencerId}`)
+          }
+        }
+      }
+
+      console.log(`📊 Commission breakdown for product ${item.productId}:
+        - Item Revenue: $${itemRevenue}
+        - Supplier Net: $${supplierNetRevenue}
+        - Supplier Commission: $${supplierCommissionAmount} (${item.commission}%)
+        ${influencerId ? `- Influencer Commission: $${(actualSalePrice - item.price) * item.quantity}` : '- No influencer involved'}`)
     }
 
     // Update products in_stock status based on new stock counts

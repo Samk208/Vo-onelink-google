@@ -1,18 +1,21 @@
-"use client"
+'use client'
 
-import React, { useEffect, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import React, { useEffect, useState } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 import { 
   Package, 
   DollarSign, 
   TrendingUp, 
-  ShoppingCart, 
   Users, 
+  ShoppingCart, 
+  Star,
+  RefreshCw,
   Plus,
-  BarChart3,
-  Settings
+  FileText,
+  BarChart3
 } from 'lucide-react'
 
 interface SupplierStats {

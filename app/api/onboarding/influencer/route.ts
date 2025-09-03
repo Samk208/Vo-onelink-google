@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
-import { getCurrentUser } from '@/lib/auth-helpers'
-import { supabaseAdmin } from '@/lib/supabase'
-import { encryptSensitiveData } from '@/lib/encryption'
+import { type NextRequest, NextResponse } from "next/server"
+import { createServerSupabaseClient } from "@/lib/supabase"
+import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
+import { UserRole } from "@/lib/types"
+import * as z from "zod"
 
 const influencerPayoutSchema = z.object({
   bank_name: z.string().min(1, 'Bank name is required'),
@@ -22,44 +22,56 @@ const influencerPayoutSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
+    const supabase = createServerSupabaseClient()
+    
+    // Get current user
+    const user = await getCurrentUser(request)
     if (!user) {
-      return NextResponse.json({
-        ok: false,
-        error: 'Authentication required'
-      }, { status: 401 })
+      return NextResponse.json(
+        { ok: false, error: "Authentication required" },
+        { status: 401 }
+      )
     }
 
+    // Check if user is an influencer
+    if (!hasRole(user, UserRole.INFLUENCER)) {
+      return NextResponse.json(
+        { ok: false, error: "Influencer access required" },
+        { status: 403 }
+      )
+    }
+
+    // Parse and validate request body
     const body = await request.json()
-    const data = influencerPayoutSchema.parse(body)
+    const validatedData = influencerPayoutSchema.parse(body)
 
     // Encrypt sensitive financial data
-    const encryptedAccountNumber = encryptSensitiveData(data.account_number)
-    const encryptedRoutingNumber = data.routing_number ? encryptSensitiveData(data.routing_number) : null
-    const encryptedSwiftCode = data.swift_code ? encryptSensitiveData(data.swift_code) : null
-    const encryptedTaxId = data.tax_id ? encryptSensitiveData(data.tax_id) : null
+    const encryptedAccountNumber = encryptSensitiveData(validatedData.account_number)
+    const encryptedRoutingNumber = validatedData.routing_number ? encryptSensitiveData(validatedData.routing_number) : null
+    const encryptedSwiftCode = validatedData.swift_code ? encryptSensitiveData(validatedData.swift_code) : null
+    const encryptedTaxId = validatedData.tax_id ? encryptSensitiveData(validatedData.tax_id) : null
 
     // Upsert influencer payout details with encrypted sensitive fields
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from('influencer_payouts')
       .upsert({
         user_id: user.id,
-        bank_name: data.bank_name,
-        account_holder_name: data.account_holder_name,
+        bank_name: validatedData.bank_name,
+        account_holder_name: validatedData.account_holder_name,
         account_number_encrypted: encryptedAccountNumber,
         routing_number_encrypted: encryptedRoutingNumber,
         swift_code_encrypted: encryptedSwiftCode,
         tax_id_encrypted: encryptedTaxId,
-        address: data.address,
+        address: validatedData.address,
         updated_at: new Date().toISOString()
       })
 
     if (error) {
       console.error('Failed to save influencer payout details:', error)
-      return NextResponse.json({
-        ok: false,
-        error: 'Failed to save payout details'
-      }, { status: 500 })
+      return NextResponse.json(
+        { ok: false, error: "Failed to save payout details" },
+        { status: 500 }
+      )
     }
 
     // Log the action for audit trail
@@ -72,17 +84,16 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({
-        ok: false,
-        error: 'Invalid input data',
-        fieldErrors: error.flatten().fieldErrors
-      }, { status: 400 })
+      return NextResponse.json(
+        { ok: false, error: "Invalid input data", details: error.errors },
+        { status: 400 }
+      )
     }
 
     console.error('Influencer payout error:', error)
-    return NextResponse.json({
-      ok: false,
-      error: 'Internal server error'
-    }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: "Internal server error" },
+      { status: 500 }
+    )
   }
 }
