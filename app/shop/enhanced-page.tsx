@@ -54,6 +54,31 @@ export default function EnhancedShopPage() {
   
   const { getTotalItems } = useCartStore()
 
+  // Transform products to match ProductCard interface
+  const transformProduct = (product: any) => ({
+    id: product.id,
+    title: product.title,
+    description: product.description,
+    price: product.price,
+    originalPrice: product.originalPrice,
+    images: product.images || [],
+    category: product.category,
+    tags: product.tags || [],
+    stock_count: product.stockCount || 0,
+    in_stock: product.inStock || false,
+    active: product.active || true,
+    rating: product.rating || 0,
+    review_count: product.reviewCount || 0,
+    supplier: {
+      id: product.supplierId || '',
+      name: product.supplierName || 'Unknown Supplier',
+      verified: product.supplierVerified || false,
+      avatar_url: product.supplierAvatar || undefined
+    }
+  })
+
+  const transformedProducts = products.map(transformProduct)
+
   const handleFiltersChange = (newFilters: ProductFiltersType) => {
     setFilters(newFilters)
     setCurrentPage(1) // Reset pagination when filters change
@@ -167,7 +192,7 @@ export default function EnhancedShopPage() {
                     ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" 
                     : "grid-cols-1"
                 )}>
-                  {products.map((product) => (
+                  {transformedProducts.map((product) => (
                     <ProductCard
                       key={product.id}
                       product={product}

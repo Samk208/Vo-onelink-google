@@ -182,6 +182,68 @@ export async function listFiles(
   }
 }
 
+/**
+ * Generate a secure upload URL for client-side uploads
+ */
+export async function generateSecureUploadUrl(
+  bucket: string,
+  path: string,
+  expiresIn: number = 3600 // 1 hour default
+): Promise<{ url: string; error?: string }> {
+  try {
+    const supabase = createServerSupabaseClient()
+    
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUploadUrl(path, {
+        upsert: false
+      })
+
+    if (error) {
+      return { url: '', error: error.message }
+    }
+
+    return { url: data.signedUrl }
+  } catch (error) {
+    return { 
+      url: '', 
+      error: error instanceof Error ? error.message : 'Failed to generate upload URL' 
+    }
+  }
+}
+
+/**
+ * Validate file upload based on size, type, and other criteria
+ */
+export function validateFileUpload(
+  file: File,
+  options: {
+    maxSize?: number
+    allowedTypes?: string[]
+    maxDimensions?: { width: number; height: number }
+  } = {}
+): { valid: boolean; error?: string } {
+  const { maxSize = 10 * 1024 * 1024, allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] } = options
+
+  // Check file size
+  if (file.size > maxSize) {
+    return {
+      valid: false,
+      error: `File size exceeds ${Math.round(maxSize / 1024 / 1024)}MB limit`
+    }
+  }
+
+  // Check file type
+  if (!allowedTypes.includes(file.type)) {
+    return {
+      valid: false,
+      error: `File type ${file.type} not allowed. Allowed types: ${allowedTypes.join(', ')}`
+    }
+  }
+
+  return { valid: true }
+}
+
 // Common storage configurations
 export const STORAGE_CONFIGS = {
   documents: {

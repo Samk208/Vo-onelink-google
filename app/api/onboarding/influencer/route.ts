@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is an influencer
-    if (!hasRole(user, UserRole.INFLUENCER as UserRole)) {
+    if (!hasRole(user, [UserRole.INFLUENCER])) {
       return NextResponse.json(
         { ok: false, error: "Influencer access required" },
         { status: 403 }

@@ -1,11 +1,20 @@
 import { createServerSupabaseClient, supabaseAdmin } from './supabase'
 import { UserRole, type User, type AuthResponse } from './types'
 import { NextRequest } from 'next/server'
+import { SupabaseClient } from '@supabase/supabase-js'
 
-// Get current user from request
-export async function getCurrentUser(request: NextRequest): Promise<User | null> {
+// Get current user from request or supabase client
+export async function getCurrentUser(requestOrSupabase: NextRequest | SupabaseClient): Promise<User | null> {
   try {
-    const supabase = await createServerSupabaseClient()
+    let supabase: SupabaseClient
+    
+    if ('auth' in requestOrSupabase) {
+      // If passed a SupabaseClient, use it directly
+      supabase = requestOrSupabase
+    } else {
+      // If passed a NextRequest, create a new client
+      supabase = await createServerSupabaseClient()
+    }
     
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) return null

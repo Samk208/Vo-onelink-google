@@ -40,6 +40,7 @@ import {
   MessageSquare,
 } from "lucide-react"
 import { format } from "date-fns"
+import { DateRange } from "react-day-picker"
 
 // Mock data
 const mockVerifications = [
@@ -129,7 +130,7 @@ export default function AdminConsole() {
   const [activeTab, setActiveTab] = useState("verifications")
   const [selectedVerification, setSelectedVerification] = useState<any>(null)
   const [verificationNote, setVerificationNote] = useState("")
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({})
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
   const [selectedInfluencer, setSelectedInfluencer] = useState("all")
 
   const handleApproveVerification = async (id: string) => {

@@ -35,11 +35,14 @@ export async function POST(request: NextRequest) {
     // Upsert brand details
     const brandData = {
       user_id: user.id,
-      company_name: validation.data.company_name,
-      business_type: validation.data.business_type,
-      website: validation.data.website,
+      company_name: validation.data.companyName,
+      business_type: validation.data.industry, // Map industry to business_type
+      website: validation.data.companyWebsite,
       description: validation.data.description,
       industry: validation.data.industry,
+      company_size: validation.data.companySize,
+      business_registration_number: validation.data.businessRegistrationNumber,
+      tax_id: validation.data.taxId,
       updated_at: new Date().toISOString(),
     }
 

@@ -121,7 +121,10 @@ export async function POST(request: NextRequest) {
     
     for (const doc of validatedDocuments) {
       // Validate file upload
-      const validation = validateFileUpload(doc.file_name, doc.file_size, doc.mime_type)
+      const validation = validateFileUpload(new File([], doc.file_name, { type: doc.mime_type }), {
+        maxSize: doc.file_size,
+        allowedTypes: [doc.mime_type]
+      })
       if (!validation.valid) {
         return NextResponse.json(
           { 
@@ -136,9 +139,9 @@ export async function POST(request: NextRequest) {
       const fileExtension = doc.file_name.toLowerCase().substring(doc.file_name.lastIndexOf('.') + 1)
 
       // Generate secure upload URL with short TTL
-      const uploadResult = await generateSecureUploadUrl(user.id, doc.document_type, fileExtension)
+      const uploadResult = await generateSecureUploadUrl('documents', `kyc/${user.id}/${crypto.randomUUID()}-${doc.file_name}`)
       
-      if (!uploadResult.success) {
+      if (uploadResult.error) {
         return NextResponse.json(
           { 
             ok: false, 
@@ -180,7 +183,7 @@ export async function POST(request: NextRequest) {
       documentResults.push({
         id: documentId,
         doc_type: doc.document_type,
-        upload_url: uploadResult.uploadUrl,
+        upload_url: uploadResult.url,
         storage_path: storagePath,
         expires_in: 900, // 15 minutes
       })

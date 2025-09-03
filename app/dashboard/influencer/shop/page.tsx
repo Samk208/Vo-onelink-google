@@ -201,7 +201,7 @@ export default function MyShopBuilder() {
     // Update in backend
     updatedItems.forEach((item, index) => {
       if (item.order !== index) {
-        updateShopProduct(item.id, { displayOrder: index })
+        updateShopProduct(item.id, { order: index })
       }
     })
   }

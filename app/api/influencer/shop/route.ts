@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (!hasRole(user, UserRole.INFLUENCER)) {
+    if (!hasRole(user, [UserRole.INFLUENCER])) {
       return NextResponse.json(
         { ok: false, error: "Influencer access required" },
         { status: 403 }
@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
     const supabase = createServerSupabaseClient()
     
     const user = await getCurrentUser(request)
-    if (!user || !hasRole(user, UserRole.INFLUENCER)) {
+    if (!user || !hasRole(user, [UserRole.INFLUENCER])) {
       return NextResponse.json(
         { ok: false, error: "Influencer access required" },
         { status: 403 }

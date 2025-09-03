@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createServerSupabaseClient()
     
     // Get current user and check permissions
-    const user = await getCurrentUser(request, supabase)
+    const user = await getCurrentUser(request)
     if (!user) {
       return NextResponse.json(
         { ok: false, error: "Authentication required" },

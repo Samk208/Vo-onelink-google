@@ -145,14 +145,31 @@ export async function PUT(
     }
 
     // Calculate final price if commission is updated
-    let finalUpdateData = {
+    let finalUpdateData: any = {
       ...updateData,
       updated_at: new Date().toISOString(),
     }
 
-    // Update in_stock based on stockCount if provided
+    // Map validation schema fields to database fields
     if (updateData.stockCount !== undefined) {
+      finalUpdateData.stock_count = updateData.stockCount
       finalUpdateData.in_stock = updateData.stockCount > 0
+    }
+    
+    if (updateData.region !== undefined) {
+      finalUpdateData.region = updateData.region
+    }
+    
+    if (updateData.images !== undefined) {
+      finalUpdateData.images = updateData.images
+    }
+    
+    if (updateData.originalPrice !== undefined) {
+      finalUpdateData.original_price = updateData.originalPrice
+    }
+    
+    if (updateData.sku !== undefined) {
+      finalUpdateData.sku = updateData.sku
     }
 
     const { data: product, error } = await supabase
