@@ -257,3 +257,14 @@ export const profileQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })
+
+// Brand onboarding validation schemas
+export const brandDetailsSchema = z.object({
+  companyName: z.string().min(2, 'Company name must be at least 2 characters'),
+  companyWebsite: z.string().url('Please enter a valid website URL').optional(),
+  industry: z.string().min(2, 'Industry must be specified'),
+  companySize: z.enum(['1-10', '11-50', '51-200', '201-1000', '1000+']),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
+  businessRegistrationNumber: z.string().optional(),
+  taxId: z.string().optional()
+})

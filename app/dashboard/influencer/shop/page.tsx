@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
@@ -11,334 +11,350 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd"
+import { 
+  Search, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Eye, 
+  EyeOff, 
+  GripVertical, 
+  Percent,
+  DollarSign,
+  Package,
+  Filter,
+  RefreshCw
+} from "lucide-react"
 
-// Mock data for supplier catalog
-const supplierProducts = [
-  {
-    id: "1",
-    title: "Premium Cotton T-Shirt",
-    basePrice: 29.99,
-    image: "/cotton-tee.png",
-    category: "Fashion",
-    region: "Global",
-    supplier: "StyleCo",
-    inStock: true,
-    stockCount: 150,
-  },
-  {
-    id: "2",
-    title: "Gold Chain Necklace",
-    basePrice: 89.99,
-    image: "/gold-necklace.png",
-    category: "Jewelry",
-    region: "KR",
-    supplier: "LuxeJewels",
-    inStock: true,
-    stockCount: 45,
-  },
-  {
-    id: "3",
-    title: "Skincare Essentials Set",
-    basePrice: 149.99,
-    image: "/skincare-set.png",
-    category: "Beauty",
-    region: "JP",
-    supplier: "BeautyLab",
-    inStock: true,
-    stockCount: 8,
-  },
-  {
-    id: "4",
-    title: "Classic Denim Jacket",
-    basePrice: 79.99,
-    image: "/classic-denim-jacket.png",
-    category: "Fashion",
-    region: "Global",
-    supplier: "DenimCo",
-    inStock: false,
-    stockCount: 0,
-  },
-]
+interface AvailableProduct {
+  id: string
+  title: string
+  basePrice: number
+  commission: number
+  image: string
+  category: string
+  region: string[]
+  supplier: string
+  inStock: boolean
+  stockCount: number
+}
 
-// Mock data for influencer's curated shop
-const initialShopProducts = [
-  {
-    id: "1",
-    originalId: "1",
-    title: "Premium Cotton T-Shirt",
-    customTitle: "My Favorite Everyday Tee",
-    customDescription: "This is the softest, most comfortable t-shirt I own. Perfect for casual days!",
-    basePrice: 29.99,
-    salePrice: 34.99,
-    image: "/cotton-tee.png",
-    category: "Fashion",
-    region: "Global",
-    supplier: "StyleCo",
-    published: true,
-    order: 0,
-  },
-  {
-    id: "2",
-    originalId: "2",
-    title: "Gold Chain Necklace",
-    customTitle: "Statement Gold Chain",
-    customDescription: "Elevate any outfit with this gorgeous gold chain. I wear it everywhere!",
-    basePrice: 89.99,
-    salePrice: 99.99,
-    image: "/gold-necklace.png",
-    category: "Jewelry",
-    region: "KR",
-    supplier: "LuxeJewels",
-    published: true,
-    order: 1,
-  },
-]
+interface ShopProduct {
+  id: string
+  productId: string
+  title: string
+  customTitle?: string
+  customDescription?: string
+  basePrice: number
+  salePrice: number
+  commission: number
+  expectedCommission: number
+  image: string
+  category: string
+  region: string[]
+  supplier: string
+  inStock: boolean
+  stockCount: number
+  published: boolean
+  order: number
+}
 
 export default function MyShopBuilder() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState("all")
-  const [selectedRegion, setSelectedRegion] = useState("all")
-  const [priceRange, setPriceRange] = useState([0, 200])
-  const [sortBy, setSortBy] = useState("relevance")
-  const [shopProducts, setShopProducts] = useState(initialShopProducts)
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-
-  // Filter supplier products
-  const filteredProducts = supplierProducts.filter((product) => {
-    const matchesSearch = product.title.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = selectedCategory === "all" || product.category === selectedCategory
-    const matchesRegion = selectedRegion === "all" || product.region === selectedRegion
-    const matchesPrice = product.basePrice >= priceRange[0] && product.basePrice <= priceRange[1]
-
-    return matchesSearch && matchesCategory && matchesRegion && matchesPrice
+  const [filters, setFilters] = useState({
+    search: "",
+    category: "",
+    region: "",
+    supplier: "",
+    minPrice: 0,
+    maxPrice: 1000
   })
+  const [shopProducts, setShopProducts] = useState<ShopProduct[]>([])
+  const [availableProducts, setAvailableProducts] = useState<AvailableProduct[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retrying, setRetrying] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<ShopProduct | null>(null)
+  const [processing, setProcessing] = useState<string | null>(null)
+  const [categories, setCategories] = useState<string[]>([])
+  const [regions, setRegions] = useState<string[]>([])
+  const [suppliers, setSuppliers] = useState<string[]>([])
 
-  // Sort products
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    switch (sortBy) {
-      case "price-low":
-        return a.basePrice - b.basePrice
-      case "price-high":
-        return b.basePrice - a.basePrice
-      case "name":
-        return a.title.localeCompare(b.title)
-      default:
-        return 0
+  // Fetch shop data
+  const fetchShopData = async () => {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams()
+      
+      if (filters.search) params.append('search', filters.search)
+      if (filters.category) params.append('category', filters.category)
+      if (filters.region) params.append('region', filters.region)
+      if (filters.supplier) params.append('supplier', filters.supplier)
+      if (filters.minPrice > 0) params.append('minPrice', filters.minPrice.toString())
+      if (filters.maxPrice < 1000) params.append('maxPrice', filters.maxPrice.toString())
+
+      const response = await fetch(`/api/influencer/shop?${params}`)
+      const result = await response.json()
+      
+      if (result.ok) {
+        setShopProducts(result.data.shopProducts)
+        setAvailableProducts(result.data.availableProducts)
+        setError(null)
+      } else {
+        setError(result.error || 'Failed to fetch shop data')
+      }
+    } catch (err) {
+      setError('Network error occurred')
+    } finally {
+      setLoading(false)
     }
-  })
+  }
 
-  const handleAddToShop = (product: (typeof supplierProducts)[0]) => {
-    const newShopProduct = {
-      id: `shop-${Date.now()}`,
-      originalId: product.id,
-      title: product.title,
-      customTitle: product.title,
-      customDescription: "",
-      basePrice: product.basePrice,
-      salePrice: product.basePrice * 1.2, // 20% markup by default
-      image: product.image,
-      category: product.category,
-      region: product.region,
-      supplier: product.supplier,
-      published: false,
-      order: shopProducts.length,
+  useEffect(() => {
+    fetchShopData()
+  }, [filters])
+
+  // Add product to shop
+  const addToShop = async (product: AvailableProduct) => {
+    try {
+      const response = await fetch('/api/influencer/shop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product.id,
+          salePrice: product.basePrice
+        })
+      })
+      
+      const result = await response.json()
+      if (result.ok) {
+        toast.success('Product added to your shop!')
+        fetchShopData()
+      } else {
+        toast.error(result.error || 'Failed to add product')
+      }
+    } catch (err) {
+      toast.error('Network error occurred')
     }
-
-    setShopProducts([...shopProducts, newShopProduct])
-    toast.success("Product added to your shop!")
   }
 
-  const handleRemoveFromShop = (id: string) => {
-    setShopProducts(shopProducts.filter((p) => p.id !== id))
-    toast.success("Product removed from your shop")
+  // Update shop product
+  const updateShopProduct = async (productId: string, updates: Partial<ShopProduct>) => {
+    try {
+      const response = await fetch(`/api/influencer/shop/${productId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      })
+      
+      const result = await response.json()
+      if (result.ok) {
+        toast.success('Product updated successfully!')
+        fetchShopData()
+        setEditingProduct(null)
+      } else {
+        toast.error(result.error || 'Failed to update product')
+      }
+    } catch (err) {
+      toast.error('Network error occurred')
+    }
   }
 
-  const handleUpdateShopProduct = (id: string, updates: Partial<(typeof shopProducts)[0]>) => {
-    setShopProducts(shopProducts.map((p) => (p.id === id ? { ...p, ...updates } : p)))
+  // Remove from shop
+  const removeFromShop = async (productId: string) => {
+    try {
+      const response = await fetch(`/api/influencer/shop/${productId}`, {
+        method: 'DELETE'
+      })
+      
+      const result = await response.json()
+      if (result.ok) {
+        toast.success('Product removed from shop!')
+        fetchShopData()
+      } else {
+        toast.error(result.error || 'Failed to remove product')
+      }
+    } catch (err) {
+      toast.error('Network error occurred')
+    }
   }
 
-  const handleDragEnd = (result: any) => {
+  // Handle drag and drop reordering
+  const handleDragEnd = (result: { destination?: { index: number } | null; source: { index: number } }) => {
     if (!result.destination) return
 
     const items = Array.from(shopProducts)
     const [reorderedItem] = items.splice(result.source.index, 1)
     items.splice(result.destination.index, 0, reorderedItem)
 
-    // Update order values
+    // Update display orders
     const updatedItems = items.map((item, index) => ({
       ...item,
-      order: index,
+      order: index
     }))
 
     setShopProducts(updatedItems)
-    toast.success("Products reordered")
+
+    // Update in backend
+    updatedItems.forEach((item, index) => {
+      if (item.order !== index) {
+        updateShopProduct(item.id, { displayOrder: index })
+      }
+    })
   }
 
-  const handleBulkPublish = () => {
-    if (selectedProducts.length === 0) {
-      toast.error("Please select products to publish")
-      return
-    }
+  // Get unique values for filters
+  useEffect(() => {
+    const categories = [...new Set(availableProducts.map(p => p.category))]
+    const regions = [...new Set(availableProducts.flatMap(p => p.region))]
+    const suppliers = [...new Set(availableProducts.map(p => p.supplier))]
+    setCategories(categories)
+    setRegions(regions)
+    setSuppliers(suppliers)
+  }, [availableProducts])
 
-    setShopProducts(shopProducts.map((p) => (selectedProducts.includes(p.id) ? { ...p, published: true } : p)))
-    setSelectedProducts([])
-    toast.success(`${selectedProducts.length} products published`)
-  }
-
-  const handleBulkUnpublish = () => {
-    if (selectedProducts.length === 0) {
-      toast.error("Please select products to unpublish")
-      return
-    }
-
-    setShopProducts(shopProducts.map((p) => (selectedProducts.includes(p.id) ? { ...p, published: false } : p)))
-    setSelectedProducts([])
-    toast.success(`${selectedProducts.length} products unpublished`)
-  }
-
-  const handlePreviewShop = () => {
-    window.open("/shop/sarah-style", "_blank")
-    toast.success("Opening shop preview in new tab")
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600"></div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="h-screen flex flex-col">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-        <div className="flex items-center justify-between">
+      <div className="border-b bg-white p-6">
+        <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Shop Builder</h1>
-            <p className="text-gray-600 dark:text-gray-400">Curate products and customize your shop</p>
+            <h1 className="text-2xl font-bold">My Shop Builder</h1>
+            <p className="text-gray-600">Curate products for your shop and set custom pricing</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={handlePreviewShop}>
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                />
-              </svg>
-              Preview Shop
-            </Button>
-            <Button onClick={handleBulkPublish} disabled={selectedProducts.length === 0}>
-              Bulk Publish ({selectedProducts.length})
-            </Button>
-            <Button variant="outline" onClick={handleBulkUnpublish} disabled={selectedProducts.length === 0}>
-              Bulk Unpublish
-            </Button>
-          </div>
+          <Button onClick={fetchShopData} variant="outline">
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex h-[calc(100vh-120px)]">
-        {/* Left Pane - Supplier Catalog */}
-        <div className="w-1/2 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Supplier Catalog</h2>
-
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Pane - Available Products */}
+        <div className="w-1/2 border-r bg-gray-50 flex flex-col">
+          <div className="p-4 border-b bg-white">
+            <h2 className="text-lg font-semibold mb-4">Available Products</h2>
+            
             {/* Search */}
-            <div className="mb-4">
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full"
+                value={filters.search}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, search: e.target.value })}
+                className="pl-10"
               />
             </div>
 
             {/* Filters */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="Fashion">Fashion</SelectItem>
-                  <SelectItem value="Beauty">Beauty</SelectItem>
-                  <SelectItem value="Jewelry">Jewelry</SelectItem>
-                  <SelectItem value="Home">Home</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search products..."
+                  value={filters.search}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, search: e.target.value })}
+                  className="pl-10"
+                />
+              </div>
 
-              <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Region" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Regions</SelectItem>
-                  <SelectItem value="Global">Global</SelectItem>
-                  <SelectItem value="KR">Korea</SelectItem>
-                  <SelectItem value="JP">Japan</SelectItem>
-                  <SelectItem value="CN">China</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Filters */}
+              <div className="grid grid-cols-3 gap-2">
+                <Select value={filters.category} onValueChange={(value: string) => setFilters({ ...filters, category: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All Categories</SelectItem>
+                    {categories.map(cat => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.region} onValueChange={(value: string) => setFilters({ ...filters, region: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Region" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All Regions</SelectItem>
+                    {regions.map(region => (
+                      <SelectItem key={region} value={region}>{region}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.supplier} onValueChange={(value: string) => setFilters({ ...filters, supplier: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Supplier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">All Suppliers</SelectItem>
+                    {suppliers.map(supplier => (
+                      <SelectItem key={supplier} value={supplier}>{supplier}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Price Range */}
+              <div className="flex gap-2 mt-4">
+                <Input
+                  type="number"
+                  value={filters.minPrice}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, minPrice: parseFloat(e.target.value) || 0 })}
+                  placeholder="Min Price"
+                />
+                <Input
+                  type="number"
+                  value={filters.maxPrice}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilters({ ...filters, maxPrice: parseFloat(e.target.value) || 1000 })}
+                  placeholder="Max Price"
+                />
+              </div>
             </div>
 
-            {/* Price Range */}
-            <div className="mb-4">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                Price Range: ${priceRange[0]} - ${priceRange[1]}
-              </label>
-              <Slider value={priceRange} onValueChange={setPriceRange} max={200} step={10} className="w-full" />
-            </div>
-
-            {/* Sort */}
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="relevance">Relevance</SelectItem>
-                <SelectItem value="price-low">Price: Low to High</SelectItem>
-                <SelectItem value="price-high">Price: High to Low</SelectItem>
-                <SelectItem value="name">Name A-Z</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Product Grid */}
-          <div className="p-6 overflow-y-auto h-full">
-            <div className="grid grid-cols-1 gap-4">
-              {sortedProducts.map((product) => (
+            {/* Available Products List */}
+            <div className="space-y-3">
+              {availableProducts.map((product: AvailableProduct) => (
                 <Card key={product.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
+                    <div className="flex gap-3">
                       <img
-                        src={product.image || "/placeholder.svg"}
+                        src={product.image}
                         alt={product.title}
-                        className="w-16 h-16 object-cover rounded-lg"
+                        className="w-16 h-16 object-cover rounded"
                       />
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900 dark:text-white">{product.title}</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{product.supplier}</p>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium truncate">{product.title}</h3>
+                        <p className="text-sm text-gray-600">{product.supplier}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="secondary">{product.category}</Badge>
-                          <Badge variant="outline">{product.region}</Badge>
-                          {!product.inStock && <Badge variant="destructive">Out of Stock</Badge>}
-                          {product.inStock && product.stockCount < 10 && <Badge variant="secondary">Low Stock</Badge>}
+                          <Badge variant="outline">
+                            <Percent className="w-3 h-3 mr-1" />
+                            {product.commission}%
+                          </Badge>
                         </div>
-                        <p className="text-lg font-semibold text-indigo-600 dark:text-indigo-400 mt-1">
-                          ${product.basePrice}
-                        </p>
+                        <div className="flex justify-between items-center mt-2">
+                          <span className="font-semibold">${product.basePrice}</span>
+                          <Button
+                            size="sm"
+                            onClick={() => addToShop(product)}
+                            disabled={!product.inStock}
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add
+                          </Button>
+                        </div>
                       </div>
-                      <Button
-                        onClick={() => handleAddToShop(product)}
-                        disabled={!product.inStock || shopProducts.some((p) => p.originalId === product.id)}
-                        size="sm"
-                      >
-                        {shopProducts.some((p) => p.originalId === product.id) ? "Added" : "Add to Shop"}
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -348,180 +364,164 @@ export default function MyShopBuilder() {
         </div>
 
         {/* Right Pane - My Shop */}
-        <div className="w-1/2 bg-gray-50 dark:bg-gray-900">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                My Shop ({shopProducts.length} products)
-              </h2>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                {shopProducts.filter((p) => p.published).length} published
-              </div>
-            </div>
+        <div className="w-1/2 flex flex-col">
+          <div className="p-4 border-b bg-white">
+            <h2 className="text-lg font-semibold">My Shop ({shopProducts.length} products)</h2>
+            <p className="text-sm text-gray-600">Drag to reorder, click to edit</p>
           </div>
 
-          <div className="p-6 overflow-y-auto h-full">
-            {shopProducts.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Your shop is empty</h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Add products from the supplier catalog to get started
-                </p>
-              </div>
-            ) : (
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="shop-products">
-                  {(provided) => (
-                    <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
-                      {shopProducts.map((product, index) => (
-                        <Draggable key={product.id} draggableId={product.id} index={index}>
-                          {(provided, snapshot) => (
-                            <Card
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className={`${snapshot.isDragging ? "shadow-lg" : ""} transition-shadow`}
-                            >
-                              <CardContent className="p-4">
-                                <div className="flex items-start gap-4">
-                                  {/* Drag Handle */}
-                                  <div
-                                    {...provided.dragHandleProps}
-                                    className="mt-2 cursor-grab active:cursor-grabbing"
-                                  >
-                                    <svg
-                                      className="w-5 h-5 text-gray-400"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M4 8h16M4 16h16"
-                                      />
-                                    </svg>
+          <div className="flex-1 overflow-y-auto p-4">
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="shop-products">
+                {(provided) => (
+                  <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-3">
+                    {shopProducts.map((product, index) => (
+                      <Draggable key={product.id} draggableId={product.id} index={index}>
+                        {(provided) => (
+                          <Card
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className="hover:shadow-md transition-shadow"
+                          >
+                            <CardContent className="p-4">
+                              <div className="flex gap-3">
+                                <div {...provided.dragHandleProps} className="flex items-center">
+                                  <GripVertical className="w-4 h-4 text-gray-400" />
+                                </div>
+                                <img
+                                  src={product.image}
+                                  alt={product.title}
+                                  className="w-16 h-16 object-cover rounded"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-medium truncate">
+                                    {product.customTitle || product.title}
+                                  </h3>
+                                  <p className="text-sm text-gray-600">{product.supplier}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge variant="secondary">{product.category}</Badge>
+                                    <Badge variant="outline">
+                                      <DollarSign className="w-3 h-3 mr-1" />
+                                      ${product.expectedCommission.toFixed(2)} commission
+                                    </Badge>
                                   </div>
-
-                                  {/* Checkbox */}
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedProducts.includes(product.id)}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedProducts([...selectedProducts, product.id])
-                                      } else {
-                                        setSelectedProducts(selectedProducts.filter((id) => id !== product.id))
-                                      }
-                                    }}
-                                    className="mt-2 rounded border-gray-300"
-                                  />
-
-                                  {/* Product Image */}
-                                  <img
-                                    src={product.image || "/placeholder.svg"}
-                                    alt={product.title}
-                                    className="w-16 h-16 object-cover rounded-lg"
-                                  />
-
-                                  {/* Product Details */}
-                                  <div className="flex-1 space-y-3">
-                                    <div>
-                                      <Input
-                                        value={product.customTitle}
-                                        onChange={(e) =>
-                                          handleUpdateShopProduct(product.id, { customTitle: e.target.value })
-                                        }
-                                        placeholder="Custom title"
-                                        className="font-medium"
-                                      />
-                                      <p className="text-xs text-gray-500 mt-1">Original: {product.title}</p>
-                                    </div>
-
-                                    <Textarea
-                                      value={product.customDescription}
-                                      onChange={(e) =>
-                                        handleUpdateShopProduct(product.id, { customDescription: e.target.value })
-                                      }
-                                      placeholder="Add your personal description..."
-                                      rows={2}
-                                      className="text-sm"
-                                    />
-
-                                    <div className="flex items-center gap-4">
-                                      <div>
-                                        <label className="text-xs text-gray-600 dark:text-gray-400">Sale Price</label>
-                                        <Input
-                                          type="number"
-                                          value={product.salePrice}
-                                          onChange={(e) =>
-                                            handleUpdateShopProduct(product.id, {
-                                              salePrice: Number.parseFloat(e.target.value),
-                                            })
-                                          }
-                                          min={product.basePrice}
-                                          step="0.01"
-                                          className="w-24"
-                                        />
-                                        <p className="text-xs text-gray-500">Min: ${product.basePrice}</p>
-                                      </div>
-
-                                      <div className="flex items-center gap-2">
-                                        <Switch
-                                          checked={product.published}
-                                          onCheckedChange={(checked) =>
-                                            handleUpdateShopProduct(product.id, { published: checked })
-                                          }
-                                        />
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                                          {product.published ? "Published" : "Draft"}
+                                  <div className="flex justify-between items-center mt-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold">${product.salePrice}</span>
+                                      {product.salePrice !== product.basePrice && (
+                                        <span className="text-sm text-gray-500 line-through">
+                                          ${product.basePrice}
                                         </span>
-                                      </div>
+                                      )}
                                     </div>
-
-                                    <div className="flex items-center justify-between">
-                                      <div className="flex items-center gap-2">
-                                        <Badge variant="secondary">{product.category}</Badge>
-                                        <Badge variant="outline">{product.region}</Badge>
-                                        {product.published && (
-                                          <Badge className="bg-green-100 text-green-800">Live</Badge>
-                                        )}
-                                      </div>
+                                    <div className="flex items-center gap-1">
                                       <Button
-                                        variant="ghost"
                                         size="sm"
-                                        onClick={() => handleRemoveFromShop(product.id)}
-                                        className="text-red-600 hover:text-red-700"
+                                        variant="outline"
+                                        onClick={() => updateShopProduct(product.id, { published: !product.published })}
                                       >
-                                        Remove
+                                        {product.published ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setEditingProduct(product)}
+                                      >
+                                        <Edit className="w-4 h-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => removeFromShop(product.id)}
+                                      >
+                                        <Trash2 className="w-4 h-4" />
                                       </Button>
                                     </div>
                                   </div>
                                 </div>
-                              </CardContent>
-                            </Card>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </DragDropContext>
-            )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
           </div>
         </div>
       </div>
+
+      {/* Edit Product Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle>Edit Product</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Custom Title</label>
+                <Input
+                  value={editingProduct.customTitle || ''}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingProduct({
+                    ...editingProduct,
+                    customTitle: e.target.value
+                  })}
+                  placeholder={editingProduct.title}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Custom Description</label>
+                <Textarea
+                  value={editingProduct.customDescription || ''}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditingProduct({
+                    ...editingProduct,
+                    customDescription: e.target.value
+                  })}
+                  placeholder="Add your personal description..."
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Sale Price</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={editingProduct.salePrice}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingProduct({
+                    ...editingProduct,
+                    salePrice: parseFloat(e.target.value) || 0
+                  })}
+                />
+                <p className="text-xs text-gray-600 mt-1">
+                  Base price: ${editingProduct.basePrice} | 
+                  Commission: ${((editingProduct.salePrice * editingProduct.commission) / 100).toFixed(2)}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => updateShopProduct(editingProduct.id, {
+                    customTitle: editingProduct.customTitle,
+                    customDescription: editingProduct.customDescription,
+                    salePrice: editingProduct.salePrice
+                  })}
+                  className="flex-1"
+                >
+                  Save Changes
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setEditingProduct(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

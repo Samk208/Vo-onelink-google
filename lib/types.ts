@@ -226,6 +226,20 @@ export interface BrandCompany {
   updated_at: string
 }
 
+export interface BrandDetails {
+  id?: string;
+  profileId: string;
+  companyName: string;
+  companyWebsite?: string;
+  industry: string;
+  companySize: string;
+  description: string;
+  businessRegistrationNumber?: string;
+  taxId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface BrandCommissionDefaults {
   id: string
   brand_user_id: string

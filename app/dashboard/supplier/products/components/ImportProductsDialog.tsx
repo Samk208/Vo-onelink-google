@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import type React, { ChangeEvent } from "react"
 
 import { useState, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
@@ -166,7 +166,7 @@ export function ImportProductsDialog({ open, onOpenChange }: ImportProductsDialo
     [toast],
   )
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
       setFile(selectedFile)

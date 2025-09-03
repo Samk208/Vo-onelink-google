@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getCurrentUser } from '@/lib/auth'
-import { createClient } from '@supabase/supabase-js'
+import { getCurrentUser } from '@/lib/auth-helpers'
+import { supabaseAdmin } from '@/lib/supabase'
 import { encryptSensitiveData } from '@/lib/encryption'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 const influencerPayoutSchema = z.object({
   bank_name: z.string().min(1, 'Bank name is required'),
@@ -45,7 +40,7 @@ export async function POST(request: NextRequest) {
     const encryptedTaxId = data.tax_id ? encryptSensitiveData(data.tax_id) : null
 
     // Upsert influencer payout details with encrypted sensitive fields
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('influencer_payouts')
       .upsert({
         user_id: user.id,
