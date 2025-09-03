@@ -147,6 +147,9 @@ export default function SupplierDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{data.stats.totalProducts}</div>
+            <p className="text-xs text-muted-foreground">
+              +{data.thisMonthStats.newProducts} this month
+            </p>
           </CardContent>
         </Card>
 
@@ -159,6 +162,9 @@ export default function SupplierDashboard() {
             <div className="text-2xl font-bold" data-testid="total-revenue">
               ${data.stats.totalRevenue.toLocaleString()}
             </div>
+            <p className="text-xs text-muted-foreground">
+              ${data.thisMonthStats.revenue.toLocaleString()} this month
+            </p>
           </CardContent>
         </Card>
 
@@ -171,6 +177,9 @@ export default function SupplierDashboard() {
             <div className="text-2xl font-bold text-green-600" data-testid="commission-earned">
               ${data.stats.commissionEarned.toLocaleString()}
             </div>
+            <p className="text-xs text-muted-foreground">
+              {data.stats.activeOrders} active orders
+            </p>
           </CardContent>
         </Card>
 
@@ -181,16 +190,22 @@ export default function SupplierDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{data.stats.totalSales}</div>
+            <p className="text-xs text-muted-foreground">
+              {data.thisMonthStats.sales} this month
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Orders</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+            <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{data.stats.activeOrders}</div>
+            <p className="text-xs text-muted-foreground">
+              {data.todayStats.orders} today
+            </p>
           </CardContent>
         </Card>
 
@@ -201,6 +216,9 @@ export default function SupplierDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{data.stats.influencerPartners}</div>
+            <p className="text-xs text-muted-foreground">
+              Active partnerships
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -211,83 +229,88 @@ export default function SupplierDashboard() {
           <CardTitle>Today's Performance</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="today-sales">{data.todayStats.sales}</div>
-              <div className="text-sm text-muted-foreground">Sales</div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="text-center p-4 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">
+                {data.todayStats.sales}
+              </div>
+              <p className="text-sm text-gray-600">Sales Today</p>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="today-revenue">
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">
                 ${data.todayStats.revenue.toLocaleString()}
               </div>
-              <div className="text-sm text-muted-foreground">Revenue</div>
+              <p className="text-sm text-gray-600">Revenue Today</p>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold" data-testid="today-orders">{data.todayStats.orders}</div>
-              <div className="text-sm text-muted-foreground">Orders</div>
+            <div className="text-center p-4 bg-purple-50 rounded-lg">
+              <div className="text-2xl font-bold text-purple-600">
+                {data.todayStats.orders}
+              </div>
+              <p className="text-sm text-gray-600">Orders Today</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Top Products */}
-      <Card>
-        <CardHeader>
-          <CardTitle data-testid="top-products">Top Products</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {data.topProducts.map((product: TopProduct) => (
-              <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`product-${product.id}`}>
-                <div className="flex-1">
-                  <h4 className="font-medium">{product.title}</h4>
-                  <div className="flex items-center gap-4 mt-1 text-sm text-muted-foreground">
-                    <span>{product.sales} sales</span>
-                    <span>${product.revenue.toLocaleString()} revenue</span>
-                    <Badge variant="secondary" data-testid="commission-badge">
-                      {product.commission}% commission
+      {/* Top Products and Recent Orders */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Products */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Top Performing Products</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {data.topProducts.slice(0, 5).map((product, index) => (
+                <div key={product.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-bold text-blue-600">
+                      #{index + 1}
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{product.title}</p>
+                      <p className="text-xs text-gray-500">{product.sales} sales</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-green-600">${product.revenue.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">{product.commission}% commission</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Orders */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Orders</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {data.recentOrders.slice(0, 5).map((order) => (
+                <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">{order.customerName}</p>
+                    <p className="text-xs text-gray-500">{order.productTitle}</p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold">${order.total.toFixed(2)}</p>
+                    <p className="text-xs text-green-600">+${order.commission.toFixed(2)}</p>
+                    <Badge variant={order.status === 'delivered' ? 'default' : 'secondary'}>
+                      {order.status}
                     </Badge>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm text-muted-foreground">Stock: {product.stock}</div>
-                  <Button variant="outline" size="sm" className="mt-2">
-                    Edit
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Orders */}
-      <Card>
-        <CardHeader>
-          <CardTitle data-testid="recent-orders">Recent Orders</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {data.recentOrders.map((order: RecentOrder) => (
-              <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg" data-testid={`order-${order.id}`}>
-                <div className="flex-1">
-                  <h4 className="font-medium">{order.customerName}</h4>
-                  <div className="text-sm text-muted-foreground">
-                    {order.productTitle} × {order.quantity}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium">${order.total.toFixed(2)}</div>
-                  <div className="text-sm text-green-600">+${order.commission.toFixed(2)} commission</div>
-                  <Badge variant={order.status === 'completed' ? 'default' : 'secondary'}>
-                    {order.status}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Quick Actions */}
       <Card>
@@ -295,27 +318,22 @@ export default function SupplierDashboard() {
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Button variant="outline" className="flex items-center gap-2 h-16">
-              <Plus className="h-5 w-5" />
-              <div className="text-left">
-                <div className="font-medium">Add Product</div>
-                <div className="text-sm text-muted-foreground">Create new product</div>
-              </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Button className="h-20 flex flex-col gap-2" variant="outline">
+              <Plus className="h-6 w-6" />
+              <span>Add Product</span>
             </Button>
-            <Button variant="outline" className="flex items-center gap-2 h-16">
-              <BarChart3 className="h-5 w-5" />
-              <div className="text-left">
-                <div className="font-medium">View Analytics</div>
-                <div className="text-sm text-muted-foreground">Detailed reports</div>
-              </div>
+            <Button className="h-20 flex flex-col gap-2" variant="outline">
+              <BarChart3 className="h-6 w-6" />
+              <span>View Analytics</span>
             </Button>
-            <Button variant="outline" className="flex items-center gap-2 h-16">
-              <Settings className="h-5 w-5" />
-              <div className="text-left">
-                <div className="font-medium">Manage Products</div>
-                <div className="text-sm text-muted-foreground">Edit inventory</div>
-              </div>
+            <Button className="h-20 flex flex-col gap-2" variant="outline">
+              <Package className="h-6 w-6" />
+              <span>Manage Inventory</span>
+            </Button>
+            <Button className="h-20 flex flex-col gap-2" variant="outline">
+              <Settings className="h-6 w-6" />
+              <span>Settings</span>
             </Button>
           </div>
         </CardContent>

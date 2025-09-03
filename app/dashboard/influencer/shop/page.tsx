@@ -23,7 +23,8 @@ import {
   DollarSign,
   Package,
   Filter,
-  RefreshCw
+  RefreshCw,
+  BarChart3
 } from "lucide-react"
 
 interface AvailableProduct {
@@ -78,6 +79,9 @@ export default function MyShopBuilder() {
   const [categories, setCategories] = useState<string[]>([])
   const [regions, setRegions] = useState<string[]>([])
   const [suppliers, setSuppliers] = useState<string[]>([])
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+  const [showAnalytics, setShowAnalytics] = useState(false)
+  const [bulkAction, setBulkAction] = useState<'publish' | 'unpublish' | 'delete' | null>(null)
 
   // Fetch shop data
   const fetchShopData = async () => {
@@ -229,11 +233,95 @@ export default function MyShopBuilder() {
             <h1 className="text-2xl font-bold">My Shop Builder</h1>
             <p className="text-gray-600">Curate products for your shop and set custom pricing</p>
           </div>
-          <Button onClick={fetchShopData} variant="outline">
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => setShowAnalytics(!showAnalytics)} 
+              variant="outline"
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
+            </Button>
+            <Button onClick={fetchShopData} variant="outline">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
+
+        {/* Bulk Actions Toolbar */}
+        {selectedProducts.length > 0 && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+            <span className="text-sm font-medium text-blue-800">
+              {selectedProducts.length} product{selectedProducts.length > 1 ? 's' : ''} selected
+            </span>
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setBulkAction('publish')}
+              >
+                Publish Selected
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setBulkAction('unpublish')}
+              >
+                Unpublish Selected
+              </Button>
+              <Button 
+                size="sm" 
+                variant="destructive"
+                onClick={() => setBulkAction('delete')}
+              >
+                Remove Selected
+              </Button>
+              <Button 
+                size="sm" 
+                variant="ghost"
+                onClick={() => setSelectedProducts([])}
+              >
+                Clear Selection
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Analytics Panel */}
+        {showAnalytics && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-green-600">{shopProducts.length}</div>
+                <p className="text-sm text-gray-600">Products in Shop</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-blue-600">
+                  {shopProducts.filter(p => p.published).length}
+                </div>
+                <p className="text-sm text-gray-600">Published</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-purple-600">
+                  ${shopProducts.reduce((sum, p) => sum + (p.salePrice || 0), 0).toFixed(2)}
+                </div>
+                <p className="text-sm text-gray-600">Total Value</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-orange-600">
+                  {Math.round(shopProducts.reduce((sum, p) => sum + (p.salePrice || 0), 0) / shopProducts.length || 0)}
+                </div>
+                <p className="text-sm text-gray-600">Avg. Price</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 flex overflow-hidden">
