@@ -1,11 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,28 +14,21 @@ import { Separator } from "@/components/ui/separator"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/hooks/use-toast"
+import { z } from "zod"
 
-const signUpSchema = z
-  .object({
-    firstName: z.string().min(2, "First name must be at least 2 characters"),
-    lastName: z.string().min(2, "Last name must be at least 2 characters"),
-    email: z.string().email("Please enter a valid email address"),
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-        "Password must contain at least one uppercase letter, one lowercase letter, and one number",
-      ),
-    confirmPassword: z.string(),
-    role: z.enum(["supplier", "influencer", "customer"], {
-      required_error: "Please select your account type",
-    }),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  })
+const signUpSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string().min(1, "Please confirm your password"),
+  role: z.enum(["supplier", "influencer", "customer"], {
+    required_error: "Please select a role",
+  }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+})
 
 type SignUpForm = z.infer<typeof signUpSchema>
 
@@ -142,8 +134,7 @@ export default function SignUpPage() {
 
       toast({
         title: "Account created successfully!",
-<<<<<<< HEAD
-        description: "Welcome to One-Link! You can now start exploring.",
+        description: "Welcome to One-Link! Let's set up your profile.",
       })
 
       const redirectPath =
@@ -152,15 +143,6 @@ export default function SignUpPage() {
           : result.role === "influencer"
             ? "/dashboard/influencer"
             : "/shop/example-handle"
-=======
-        description: "Welcome to One-Link! Let's set up your profile.",
-      })
-
-      const redirectPath =
-        result.role === "customer"
-          ? "/shop/example-handle"
-          : `/auth/onboarding?role=${result.role === "supplier" ? "brand" : result.role}`
->>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 
       router.push(redirectPath)
     } catch (err) {
@@ -299,11 +281,7 @@ export default function SignUpPage() {
                                 <RadioGroupItem value={option.value} id={option.value} className="mt-1" />
                                 <Label
                                   htmlFor={option.value}
-<<<<<<< HEAD
-                                  className="flex-1 cursor-pointer p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors focus-within:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-=======
                                   className="flex-1 cursor-pointer p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2"
->>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
                                 >
                                   <div className="flex items-start space-x-3">
                                     <Icon />
@@ -420,7 +398,7 @@ export default function SignUpPage() {
                               strokeLinecap="round"
                               strokeLinejoin="round"
                               strokeWidth={2}
-                              d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"
+                              d="M16 12a4 4 0 10-8 0 4 4 0 008 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                             />
                           </svg>
                           <Input

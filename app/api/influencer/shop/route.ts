@@ -1,13 +1,14 @@
-import { createClient } from '@/lib/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
-import { getUserFromRequest } from '@/lib/auth'
-import { z } from 'zod'
+import { createServerSupabaseClient } from "@/lib/supabase"
+import { type NextRequest, NextResponse } from "next/server"
+import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
+import { UserRole } from "@/lib/types"
+import { z } from "zod"
 
 const addProductSchema = z.object({
-  productId: z.string(),
+  productId: z.string().uuid(),
   customTitle: z.string().optional(),
   customDescription: z.string().optional(),
-  salePrice: z.number().positive().optional()
+  salePrice: z.number().min(0).optional()
 })
 
 export interface InfluencerShopData {
@@ -46,10 +47,10 @@ export interface InfluencerShopData {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = createServerSupabaseClient()
     
     // Get current user and check permissions
-    const user = await getUserFromRequest(request)
+    const user = await getCurrentUser(request)
     if (!user) {
       return NextResponse.json(
         { ok: false, error: "Authentication required" },
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (!user.roles.includes('influencer')) {
+    if (!hasRole(user, UserRole.INFLUENCER)) {
       return NextResponse.json(
         { ok: false, error: "Influencer access required" },
         { status: 403 }
@@ -205,10 +206,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = createServerSupabaseClient()
     
-    const user = await getUserFromRequest(request)
-    if (!user || !user.roles.includes('influencer')) {
+    const user = await getCurrentUser(request)
+    if (!user || !hasRole(user, UserRole.INFLUENCER)) {
       return NextResponse.json(
         { ok: false, error: "Influencer access required" },
         { status: 403 }

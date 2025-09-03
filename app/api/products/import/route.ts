@@ -1,9 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-<<<<<<< HEAD
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
-import { parse } from "csv-parse/sync"
 import { z } from "zod"
 
 interface ImportResult {
@@ -17,6 +15,22 @@ interface ImportResult {
   dryRun: boolean
 }
 
+// Validation schema for import request
+const importRequestSchema = z.object({
+  dryRun: z.boolean().default(false),
+  data: z.array(z.string()).min(1)
+})
+
+// Product validation schema  
+const productImportSchema = z.object({
+  title: z.string().min(1),
+  description: z.string(),
+  images: z.array(z.string()),
+  price: z.number().min(0),
+  regions: z.array(z.string()),
+  stock: z.number().min(0)
+})
+
 // POST /api/products/import - Import products from CSV (suppliers/admins only)
 export async function POST(request: NextRequest) {
   try {
@@ -29,10 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const validation = z.object({
-      csvData: z.string(),
-      dryRun: z.boolean().optional(),
-    }).safeParse(body)
+    const validation = importRequestSchema.safeParse(body)
     
     if (!validation.success) {
       const errors: Record<string, string> = {}
@@ -46,14 +57,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { csvData, dryRun = false } = validation.data
+    const { data, dryRun = false } = validation.data
     const supabase = await createServerSupabaseClient()
 
     // Parse CSV data (expecting header row)
-    const records = parse(csvData, {
-      columns: true,
-      skip_empty_lines: true,
-    })
+    const records = data.map((row) => row.split(','))
 
     if (records.length < 1) {
       return NextResponse.json(
@@ -62,7 +70,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const headers = Object.keys(records[0])
+    const headers = records[0]
     const expectedHeaders = ['sku', 'title', 'description', 'image_urls', 'base_price', 'commission_pct', 'regions', 'inventory', 'active']
     
     // Validate headers
@@ -91,19 +99,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const productSchema = z.object({
-      title: z.string().min(1),
-      description: z.string().min(1),
-      images: z.array(z.string().url()).min(1),
-      price: z.number().min(0),
-      regions: z.array(z.string()).min(1),
-      stock: z.number().min(0),
-    })
-
     // Process each data row
-    for (let i = 0; i < records.length; i++) {
+    for (let i = 1; i < records.length; i++) {
       const rowData = records[i]
-      const rowNumber = i + 1
+      const rowNumber = i
 
       try {
         // Map CSV data to product object
@@ -116,10 +115,12 @@ export async function POST(request: NextRequest) {
         const rowErrors: any = {}
 
         // Process each field in the row
-        for (const [key, value] of Object.entries(rowData)) {
+        for (let j = 0; j < rowData.length; j++) {
+          const value = rowData[j]
+          const key = headers[j].toLowerCase()
           const stringValue = String(value || '').trim()
           
-          switch (key.toLowerCase()) {
+          switch (key) {
             case 'title':
             case 'name':
               productData.title = stringValue
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate required fields
-        const validation = productSchema.safeParse(productData)
+        const validation = productImportSchema.safeParse(productData)
         if (!validation.success) {
           result.failed++
           validation.error.errors.forEach(err => {
@@ -202,91 +203,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { ok: false, message: "Something went wrong during import" },
       { status: 500 }
-=======
-
-export async function POST(request: NextRequest) {
-  try {
-    const { dryRun, data } = await request.json()
-
-    // Simulate processing time
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-
-    // Mock validation and processing results
-    const results = data.map((item: any, index: number) => {
-      // Simulate some validation errors
-      if (!item.title || item.title.length < 3) {
-        return {
-          row: index + 1,
-          operation: "skip",
-          status: "error",
-          message: "Title must be at least 3 characters",
-          data: item,
-        }
-      }
-
-      if (!item.price || item.price <= 0) {
-        return {
-          row: index + 1,
-          operation: "skip",
-          status: "error",
-          message: "Price must be greater than 0",
-          data: item,
-        }
-      }
-
-      // Simulate existing product check
-      if (Math.random() < 0.1) {
-        return {
-          row: index + 1,
-          operation: "update",
-          status: "success",
-          message: dryRun ? "Product will be updated" : "Product updated successfully",
-          data: item,
-        }
-      }
-
-      return {
-        row: index + 1,
-        operation: "insert",
-        status: "success",
-        message: dryRun ? "Product will be created" : "Product created successfully",
-        data: item,
-      }
-    })
-
-    const summary = results.reduce(
-      (acc: any, result: any) => {
-        acc.total++
-        if (result.status === "success") {
-          if (result.operation === "insert") acc.inserted++
-          else if (result.operation === "update") acc.updated++
-        } else {
-          acc.errors++
-        }
-        return acc
-      },
-      { total: 0, inserted: 0, updated: 0, skipped: 0, errors: 0 },
-    )
-
-    return NextResponse.json({
-      success: true,
-      dryRun,
-      results,
-      summary,
-      message: dryRun
-        ? `Dry run completed. ${summary.total} rows processed.`
-        : `Import completed. ${summary.inserted} products created, ${summary.updated} updated.`,
-    })
-  } catch (error) {
-    console.error("Import error:", error)
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to process import",
-        message: "An error occurred while processing the CSV file.",
-      },
-      { status: 500 },
->>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
     )
   }
 }

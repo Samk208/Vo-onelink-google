@@ -1,4 +1,4 @@
-import type * as React from "react"
+import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cn } from "@/lib/utils"
 
@@ -24,21 +24,30 @@ const buttonVariants = {
   },
 }
 
-interface ButtonProps extends React.ComponentProps<"button"> {
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: keyof typeof buttonVariants.variant
   size?: keyof typeof buttonVariants.size
   asChild?: boolean
 }
 
-function Button({ className, variant = "default", size = "default", asChild = false, ...props }: ButtonProps) {
-  const Comp = asChild ? Slot : "button"
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = "default", size = "default", asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button"
 
-  const baseClasses =
-    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 outline-none"
-  const variantClasses = buttonVariants.variant[variant]
-  const sizeClasses = buttonVariants.size[size]
+    const baseClasses =
+      "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 outline-none"
+    const variantClasses = buttonVariants.variant[variant]
+    const sizeClasses = buttonVariants.size[size]
 
-  return <Comp className={cn(baseClasses, variantClasses, sizeClasses, className)} {...props} />
-}
+    return (
+      <Comp
+        className={cn(baseClasses, variantClasses, sizeClasses, className)}
+        ref={ref}
+        {...props}
+      />
+    )
+  }
+)
+Button.displayName = "Button"
 
 export { Button, buttonVariants }

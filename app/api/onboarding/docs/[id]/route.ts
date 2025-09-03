@@ -1,14 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@supabase/auth-helpers-nextjs"
-import { getCurrentUser } from "@supabase/auth-helpers-nextjs"
+import { createServerSupabaseClient } from "@/lib/supabase"
+import { getCurrentUser } from "@/lib/auth-helpers"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = createServerSupabaseClient()
     
     // Get current user
     const user = await getCurrentUser(request)
     if (!user) {
+      return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 })
+    }
 
     const uploadId = params.id
 

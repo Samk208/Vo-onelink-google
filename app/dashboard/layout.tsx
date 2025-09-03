@@ -4,10 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-<<<<<<< HEAD
-=======
 import { VerificationBanner } from "@/components/ui/verification-banner"
->>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 import {
   LayoutDashboard,
   Package,
@@ -52,18 +49,14 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  // Mock user data - in real app, get from auth context
+  // Mock user data - in a real app, this would come from authentication
   const user = {
-    name: "Sarah Chen",
+    name: "Sarah Kim",
     email: "sarah@example.com",
     role: "supplier" as const,
     avatar: "/fashion-influencer-avatar.png",
-<<<<<<< HEAD
-    verified: true,
-=======
     verified: false,
     verificationStatus: "pending" as const, // pending | verified | rejected
->>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
   }
 
   const navItems = user.role === "supplier" ? supplierNavItems : influencerNavItems
@@ -166,9 +159,6 @@ export default function DashboardLayout({
           </aside>
 
           {/* Main content */}
-<<<<<<< HEAD
-          <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
-=======
           <main className="flex-1 p-4 sm:p-6 lg:p-8">
             <VerificationBanner
               userRole={user.role === "supplier" ? "brand" : "influencer"}
@@ -179,7 +169,6 @@ export default function DashboardLayout({
             />
             {children}
           </main>
->>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
         </div>
       </div>
     </Suspense>

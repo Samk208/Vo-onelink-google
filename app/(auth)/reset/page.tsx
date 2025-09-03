@@ -1,26 +1,25 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
+import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2, Mail } from "lucide-react"
+import { createServerSupabaseClient } from "@/lib/supabase"
 import { toast } from "@/hooks/use-toast"
-<<<<<<< HEAD
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-=======
->>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
 
-const resetSchema = z.object({
+const resetPasswordSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
 })
 
-type ResetForm = z.infer<typeof resetSchema>
+type ResetPasswordForm = z.infer<typeof resetPasswordSchema>
 
 const MailIcon = () => (
   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -65,23 +64,19 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState("")
-<<<<<<< HEAD
-  const supabase = createClientComponentClient()
-=======
->>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
+  const supabase = createServerSupabaseClient()
 
-  const form = useForm<ResetForm>({
-    resolver: zodResolver(resetSchema),
+  const form = useForm<ResetPasswordForm>({
+    resolver: zodResolver(resetPasswordSchema),
     defaultValues: {
       email: "",
     },
   })
 
-  const onSubmit = async (data: ResetForm) => {
+  const onSubmit = async (data: ResetPasswordForm) => {
     setIsLoading(true)
     setError("")
 
-<<<<<<< HEAD
     const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
       redirectTo: `${location.origin}/update-password`,
     })
@@ -96,36 +91,6 @@ export default function ResetPasswordPage() {
         title: "Reset link sent!",
         description: "If an account exists, you'll receive reset instructions via email.",
       })
-=======
-    try {
-      const response = await fetch("/api/auth/reset", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      })
-
-      const result = await response.json()
-
-      if (!result.ok) {
-        if (result.fieldErrors?.email) {
-          form.setError("email", { message: result.fieldErrors.email })
-        }
-        setError(result.error || "Something went wrong. Please try again.")
-        return
-      }
-
-      setIsSuccess(true)
-      toast({
-        title: "Reset link sent!",
-        description: result.message || "If an account exists, you'll receive reset instructions via email.",
-      })
-    } catch (err) {
-      setError("Something went wrong. Please try again.")
-    } finally {
-      setIsLoading(false)
->>>>>>> b5f5d5c2949e6587ddbb70f3b82511849740960c
     }
   }
 

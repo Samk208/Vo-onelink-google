@@ -2,7 +2,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole } from "@/lib/types"
-import * as z from "zod"
+import { encryptSensitiveData } from "@/lib/encryption"
+import { z } from "zod"
 
 const influencerPayoutSchema = z.object({
   bank_name: z.string().min(1, 'Bank name is required'),
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is an influencer
-    if (!hasRole(user, UserRole.INFLUENCER)) {
+    if (!hasRole(user, UserRole.INFLUENCER as UserRole)) {
       return NextResponse.json(
         { ok: false, error: "Influencer access required" },
         { status: 403 }
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { ok: false, error: "Invalid input data", details: error.errors },
+        { ok: false, error: "Invalid input data", details: error.issues },
         { status: 400 }
       )
     }
