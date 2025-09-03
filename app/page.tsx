@@ -27,7 +27,7 @@ const features = [
     description: "Discover curated products from your favorite influencers and shop with confidence.",
     benefits: ["Curated selections", "Trusted recommendations", "Secure payments", "Fast shipping"],
     cta: "Start Shopping",
-    href: "/products",
+    href: "/shop",
   },
 ]
 

@@ -97,7 +97,7 @@ const LogoutIcon = () => (
 )
 
 const navigation = [
-  { name: "Products", href: "/products" },
+  { name: "Shop", href: "/shop" },
   { name: "For Influencers", href: "/influencers" },
   { name: "For Brands", href: "/brands" },
   { name: "Pricing", href: "/pricing" },

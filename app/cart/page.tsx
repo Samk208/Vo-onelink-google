@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useCartStore } from "@/lib/store/cart"
+import { CartSidebar } from "@/components/shop/cart-sidebar"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -16,126 +15,34 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { ShoppingCart, Plus, Minus, X, ArrowLeft, Shield, Truck, RotateCcw, AlertCircle } from "lucide-react"
-
-// Mock cart data
-const mockCartItems = [
-  {
-    id: "1",
-    title: "Sustainable Cotton Tee",
-    price: 45,
-    originalPrice: 60,
-    image: "/cotton-tee.png",
-    quantity: 2,
-    inStock: true,
-    stockCount: 15,
-    influencer: { handle: "sarah_style", name: "Sarah Chen" },
-    supplier: { name: "EcoWear Co.", verified: true },
-  },
-  {
-    id: "2",
-    title: "Minimalist Gold Necklace",
-    price: 89,
-    image: "/gold-necklace.png",
-    quantity: 1,
-    inStock: true,
-    stockCount: 3,
-    influencer: { handle: "sarah_style", name: "Sarah Chen" },
-    supplier: { name: "Luxe Jewelry", verified: true },
-  },
-  {
-    id: "3",
-    title: "Organic Skincare Set",
-    price: 120,
-    originalPrice: 150,
-    image: "/skincare-set.png",
-    quantity: 1,
-    inStock: false,
-    stockCount: 0,
-    influencer: { handle: "sarah_style", name: "Sarah Chen" },
-    supplier: { name: "Pure Beauty Co.", verified: true },
-  },
-]
-
-interface CartItem {
-  id: string
-  title: string
-  price: number
-  originalPrice?: number
-  image: string
-  quantity: number
-  inStock: boolean
-  stockCount: number
-  influencer: { handle: string; name: string }
-  supplier: { name: string; verified: boolean }
-}
+import { ShoppingCart, ArrowLeft } from "lucide-react"
 
 export default function CartPage() {
-  const [cartItems, setCartItems] = useState<CartItem[]>(mockCartItems)
-  const [orderNote, setOrderNote] = useState("")
   const [isLoading, setIsLoading] = useState(true)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const { items, getTotalItems } = useCartStore()
 
-  // Simulate loading
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800)
+    // Simulate loading to allow cart store to hydrate
+    const timer = setTimeout(() => setIsLoading(false), 500)
     return () => clearTimeout(timer)
   }, [])
 
-  const updateQuantity = (id: string, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      removeItem(id)
-      return
-    }
-
-    setCartItems((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          if (newQuantity > item.stockCount) {
-            setErrors((prev) => ({ ...prev, [id]: `Only ${item.stockCount} available` }))
-            return item
-          }
-          setErrors((prev) => {
-            const newErrors = { ...prev }
-            delete newErrors[id]
-            return newErrors
-          })
-          return { ...item, quantity: newQuantity }
-        }
-        return item
-      }),
-    )
-  }
-
-  const removeItem = (id: string) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== id))
-    setErrors((prev) => {
-      const newErrors = { ...prev }
-      delete newErrors[id]
-      return newErrors
-    })
-  }
-
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const estimatedTax = subtotal * 0.08 // 8% tax
-  const estimatedShipping = subtotal > 75 ? 0 : 9.99
-  const total = subtotal + estimatedTax + estimatedShipping
-
-  const inStockItems = cartItems.filter((item) => item.inStock)
-  const outOfStockItems = cartItems.filter((item) => !item.inStock)
-
   if (isLoading) {
-    return <CartSkeleton />
+    return <CartPageSkeleton />
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-6xl">
         {/* Breadcrumb */}
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink href="/">Home</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink href="/shop">Shop</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
@@ -146,331 +53,163 @@ export default function CartPage() {
 
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
-          <Link href="/" className="flex items-center text-indigo-600 hover:text-indigo-700">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Continue Shopping
-          </Link>
-        </div>
-
-        {cartItems.length === 0 ? (
-          <EmptyCart />
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Cart Items */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* In Stock Items */}
-              {inStockItems.length > 0 && (
-                <Card className="p-6">
-                  <CardHeader className="px-0 pt-0">
-                    <CardTitle className="flex items-center gap-2">
-                      <ShoppingCart className="h-5 w-5" />
-                      Items in Cart ({inStockItems.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-0 pb-0">
-                    <div className="space-y-4">
-                      {inStockItems.map((item, index) => (
-                        <div key={item.id}>
-                          <CartItemRow
-                            item={item}
-                            onUpdateQuantity={updateQuantity}
-                            onRemove={removeItem}
-                            error={errors[item.id]}
-                          />
-                          {index < inStockItems.length - 1 && <Separator className="my-4" />}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Out of Stock Items */}
-              {outOfStockItems.length > 0 && (
-                <Card className="p-6 border-amber-200 bg-amber-50">
-                  <CardHeader className="px-0 pt-0">
-                    <CardTitle className="flex items-center gap-2 text-amber-800">
-                      <AlertCircle className="h-5 w-5" />
-                      Out of Stock Items ({outOfStockItems.length})
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-0 pb-0">
-                    <div className="space-y-4">
-                      {outOfStockItems.map((item, index) => (
-                        <div key={item.id}>
-                          <CartItemRow item={item} onUpdateQuantity={updateQuantity} onRemove={removeItem} disabled />
-                          {index < outOfStockItems.length - 1 && <Separator className="my-4" />}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Order Note */}
-              <Card className="p-6">
-                <CardHeader className="px-0 pt-0">
-                  <CardTitle>Order Note (Optional)</CardTitle>
-                </CardHeader>
-                <CardContent className="px-0 pb-0">
-                  <Textarea
-                    placeholder="Add any special instructions for your order..."
-                    value={orderNote}
-                    onChange={(e) => setOrderNote(e.target.value)}
-                    className="min-h-[100px]"
-                    maxLength={500}
-                  />
-                  <p className="text-xs text-gray-500 mt-2">{orderNote.length}/500 characters</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Order Summary */}
-            <div className="lg:col-span-1">
-              <OrderSummary
-                subtotal={subtotal}
-                estimatedTax={estimatedTax}
-                estimatedShipping={estimatedShipping}
-                total={total}
-                hasOutOfStockItems={outOfStockItems.length > 0}
-                itemCount={inStockItems.reduce((sum, item) => sum + item.quantity, 0)}
-              />
-            </div>
+          <div className="flex items-center gap-3">
+            <ShoppingCart className="h-8 w-8 text-indigo-600" />
+            <h1 className="text-3xl font-bold text-gray-900">Shopping Cart</h1>
+            {getTotalItems() > 0 && (
+              <span className="text-lg text-gray-600">({getTotalItems()} items)</span>
+            )}
           </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function CartItemRow({
-  item,
-  onUpdateQuantity,
-  onRemove,
-  error,
-  disabled = false,
-}: {
-  item: CartItem
-  onUpdateQuantity: (id: string, quantity: number) => void
-  onRemove: (id: string) => void
-  error?: string
-  disabled?: boolean
-}) {
-  return (
-    <div className={`flex gap-4 ${disabled ? "opacity-60" : ""}`}>
-      {/* Product Image */}
-      <div className="relative w-20 h-20 flex-shrink-0">
-        <Image src={item.image || "/placeholder.svg"} alt={item.title} fill className="object-cover rounded-lg" />
-        {!item.inStock && (
-          <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
-            <Badge variant="destructive" className="text-xs">
-              Out of Stock
-            </Badge>
-          </div>
-        )}
-      </div>
-
-      {/* Product Details */}
-      <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-gray-900 line-clamp-2">{item.title}</h3>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-sm text-gray-600">by {item.supplier.name}</span>
-          {item.supplier.verified && (
-            <Badge variant="outline" className="text-xs">
-              Verified
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-sm text-gray-600">Curated by @{item.influencer.handle}</span>
-        </div>
-
-        {/* Price */}
-        <div className="flex items-center gap-2 mt-2">
-          <span className="font-semibold text-gray-900">${item.price}</span>
-          {item.originalPrice && <span className="text-sm text-gray-500 line-through">${item.originalPrice}</span>}
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="flex items-center gap-1 mt-2 text-red-600">
-            <AlertCircle className="h-4 w-4" />
-            <span className="text-sm">{error}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Quantity Controls */}
-      <div className="flex flex-col items-end gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onRemove(item.id)}
-          className="h-8 w-8 p-0 text-gray-400 hover:text-red-600"
-          aria-label="Remove item"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-
-        {!disabled && (
-          <div className="flex items-center border rounded-lg">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-              disabled={item.quantity <= 1}
-              className="h-8 w-8 p-0"
-              aria-label="Decrease quantity"
-            >
-              <Minus className="h-3 w-3" />
-            </Button>
-            <span className="w-10 text-center text-sm font-medium">{item.quantity}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-              disabled={item.quantity >= item.stockCount}
-              className="h-8 w-8 p-0"
-              aria-label="Increase quantity"
-            >
-              <Plus className="h-3 w-3" />
-            </Button>
-          </div>
-        )}
-
-        {/* Subtotal */}
-        <div className="text-right">
-          <span className="font-semibold text-gray-900">${(item.price * item.quantity).toFixed(2)}</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function OrderSummary({
-  subtotal,
-  estimatedTax,
-  estimatedShipping,
-  total,
-  hasOutOfStockItems,
-  itemCount,
-}: {
-  subtotal: number
-  estimatedTax: number
-  estimatedShipping: number
-  total: number
-  hasOutOfStockItems: boolean
-  itemCount: number
-}) {
-  const [isProcessing, setIsProcessing] = useState(false)
-
-  return (
-    <Card className="sticky top-8 p-6">
-      <CardHeader className="px-0 pt-0">
-        <CardTitle>Order Summary</CardTitle>
-      </CardHeader>
-      <CardContent className="px-0 pb-0">
-        <div className="space-y-3">
-          <div className="flex justify-between text-sm">
-            <span>Subtotal ({itemCount} items)</span>
-            <span>${subtotal.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span>Estimated Tax</span>
-            <span>${estimatedTax.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span>Shipping</span>
-            <span>{estimatedShipping === 0 ? "FREE" : `$${estimatedShipping.toFixed(2)}`}</span>
-          </div>
-          {estimatedShipping === 0 && <p className="text-xs text-green-600">🎉 You qualify for free shipping!</p>}
-          <Separator />
-          <div className="flex justify-between font-semibold text-lg">
-            <span>Total</span>
-            <span>${total.toFixed(2)}</span>
-          </div>
-        </div>
-
-        {hasOutOfStockItems && (
-          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <div className="flex items-center gap-2 text-amber-800">
-              <AlertCircle className="h-4 w-4" />
-              <span className="text-sm font-medium">Some items are out of stock</span>
-            </div>
-            <p className="text-xs text-amber-700 mt-1">Remove out-of-stock items to proceed with checkout</p>
-          </div>
-        )}
-
-        <div className="mt-6 space-y-3">
-          <Link href="/checkout" className="block">
-            <Button
-              size="lg"
-              className="w-full bg-indigo-600 hover:bg-indigo-700"
-              disabled={hasOutOfStockItems || itemCount === 0 || isProcessing}
-            >
-              {isProcessing ? "Processing..." : "Proceed to Checkout"}
-            </Button>
-          </Link>
-
-          <Link href="/" className="block">
-            <Button variant="outline" size="lg" className="w-full bg-transparent">
+          <Button variant="outline" asChild>
+            <Link href="/shop" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
               Continue Shopping
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
+
+        {/* Cart Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-3">
+            <Card className="overflow-hidden">
+              <CardContent className="p-0">
+                <div className="h-[600px] lg:h-[700px]">
+                  <CartSidebar />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Recommended Products Section */}
+        {items.length > 0 && (
+          <section className="mt-16">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">You might also like</h2>
+              <p className="text-gray-600">Discover more products from your favorite creators</p>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Placeholder for recommended products */}
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} className="group hover:shadow-lg transition-shadow duration-300">
+                  <div className="aspect-square bg-gray-100 rounded-t-lg"></div>
+                  <CardContent className="p-4">
+                    <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-2/3 mb-4"></div>
+                    <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+                    <Button className="w-full" disabled>
+                      Add to Cart
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Trust Indicators */}
-        <div className="grid grid-cols-3 gap-4 mt-6 pt-4 border-t text-center">
-          <div className="flex flex-col items-center gap-1">
-            <Shield className="h-4 w-4 text-green-600" />
-            <span className="text-xs text-gray-600">Secure</span>
+        <section className="mt-16 py-12 bg-white rounded-2xl">
+          <div className="text-center">
+            <h3 className="text-xl font-semibold text-gray-900 mb-8">
+              Why shop with us?
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ShoppingCart className="h-8 w-8 text-green-600" />
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Secure Shopping</h4>
+                <p className="text-gray-600 text-sm">
+                  Your payment information is encrypted and secure
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ShoppingCart className="h-8 w-8 text-blue-600" />
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Fast Shipping</h4>
+                <p className="text-gray-600 text-sm">
+                  Free shipping on orders over $75
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <ShoppingCart className="h-8 w-8 text-purple-600" />
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Easy Returns</h4>
+                <p className="text-gray-600 text-sm">
+                  30-day hassle-free return policy
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col items-center gap-1">
-            <Truck className="h-4 w-4 text-green-600" />
-            <span className="text-xs text-gray-600">Fast Ship</span>
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <RotateCcw className="h-4 w-4 text-green-600" />
-            <span className="text-xs text-gray-600">Returns</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function EmptyCart() {
-  return (
-    <div className="text-center py-16">
-      <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-        <ShoppingCart className="h-12 w-12 text-gray-400" />
+        </section>
       </div>
-      <h2 className="text-2xl font-semibold text-gray-900 mb-2">Your cart is empty</h2>
-      <p className="text-gray-600 mb-8">Discover amazing products curated by your favorite influencers</p>
-      <Link href="/">
-        <Button size="lg" className="bg-indigo-600 hover:bg-indigo-700">
-          Start Shopping
-        </Button>
-      </Link>
     </div>
   )
 }
 
-function CartSkeleton() {
+function CartPageSkeleton() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="h-4 bg-gray-200 rounded w-64 mb-6 skeleton" />
-        <div className="h-8 bg-gray-200 rounded w-48 mb-8 skeleton" />
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <div className="h-64 bg-gray-200 rounded-2xl skeleton" />
-            <div className="h-32 bg-gray-200 rounded-2xl skeleton" />
-          </div>
-          <div className="h-96 bg-gray-200 rounded-2xl skeleton" />
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 max-w-6xl">
+        {/* Breadcrumb Skeleton */}
+        <div className="flex items-center gap-2 mb-6">
+          <Skeleton className="h-4 w-16" />
+          <span>/</span>
+          <Skeleton className="h-4 w-12" />
+          <span>/</span>
+          <Skeleton className="h-4 w-24" />
         </div>
+
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-8 w-8 rounded" />
+            <Skeleton className="h-8 w-48" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+
+        {/* Cart Content Skeleton */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="space-y-6">
+              <Skeleton className="h-6 w-48" />
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex gap-4 p-4 border rounded-lg">
+                  <Skeleton className="w-20 h-20 rounded" />
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-2/3 mb-2" />
+                    <Skeleton className="h-4 w-1/3 mb-2" />
+                    <Skeleton className="h-4 w-1/4" />
+                  </div>
+                  <div className="text-right">
+                    <Skeleton className="h-8 w-24 mb-2" />
+                    <Skeleton className="h-6 w-16" />
+                  </div>
+                </div>
+              ))}
+              
+              <div className="border-t pt-6">
+                <div className="flex justify-between mb-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+                <div className="flex justify-between mb-2">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-4 w-12" />
+                </div>
+                <div className="flex justify-between mb-4 font-semibold">
+                  <Skeleton className="h-6 w-16" />
+                  <Skeleton className="h-6 w-20" />
+                </div>
+                <Skeleton className="h-12 w-full" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

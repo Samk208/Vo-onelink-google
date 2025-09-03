@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -12,6 +11,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Server-side Supabase client (for API routes) - handles async cookies
 export const createServerSupabaseClient = () => {
+  const { cookies } = require('next/headers')
   return createRouteHandlerClient({ cookies })
 }
 

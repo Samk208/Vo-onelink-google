@@ -246,45 +246,32 @@ export function DocumentUploader({ userType, onDocumentUpdate, onAllComplete, cl
 
   const uploadDocument = async (documentId: string, file: File): Promise<void> => {
     try {
-      // Simulate virus scan
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      // Create FormData for inline file upload
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('documentType', documentId)
 
-      // Create document metadata
+      // Upload file directly to API
       const response = await fetch("/api/onboarding/docs", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          documentId,
-          fileName: file.name,
-          fileSize: file.size,
-          fileType: file.type,
-        }),
+        body: formData, // Send FormData instead of JSON
       })
 
-      if (!response.ok) throw new Error("Failed to create document metadata")
-
-      const { uploadId } = await response.json()
-
-      // Simulate file upload with progress
-      for (let progress = 0; progress <= 100; progress += 10) {
-        await new Promise((resolve) => setTimeout(resolve, 200))
-        setDocumentStates((prev) => ({
-          ...prev,
-          [documentId]: {
-            ...prev[documentId],
-            progress,
-          },
-        }))
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to upload document")
       }
+
+      const result = await response.json()
 
       // Update final state
       const newState: DocumentUploadState = {
         file,
         fileName: file.name,
         fileSize: formatFileSize(file.size),
-        status: "submitted",
+        status: "verified", // Auto-approved for development
         progress: 100,
-        uploadId,
+        uploadId: result.data.id,
       }
 
       setDocumentStates((prev) => ({
@@ -293,9 +280,6 @@ export function DocumentUploader({ userType, onDocumentUpdate, onAllComplete, cl
       }))
 
       onDocumentUpdate?.(documentId, newState)
-
-      // Start polling for review status
-      pollDocumentStatus(uploadId, documentId)
     } catch (error) {
       const errorState: DocumentUploadState = {
         ...documentStates[documentId],
@@ -310,35 +294,6 @@ export function DocumentUploader({ userType, onDocumentUpdate, onAllComplete, cl
       }))
 
       onDocumentUpdate?.(documentId, errorState)
-    }
-  }
-
-  const pollDocumentStatus = async (uploadId: string, documentId: string) => {
-    try {
-      const response = await fetch(`/api/onboarding/docs/${uploadId}`)
-      if (!response.ok) return
-
-      const { status, rejectionReason } = await response.json()
-
-      if (status === "verified" || status === "rejected") {
-        const updatedState: DocumentUploadState = {
-          ...documentStates[documentId],
-          status,
-          rejectionReason: status === "rejected" ? rejectionReason : undefined,
-        }
-
-        setDocumentStates((prev) => ({
-          ...prev,
-          [documentId]: updatedState,
-        }))
-
-        onDocumentUpdate?.(documentId, updatedState)
-      } else {
-        // Continue polling
-        setTimeout(() => pollDocumentStatus(uploadId, documentId), 5000)
-      }
-    } catch (error) {
-      console.error("Failed to poll document status:", error)
     }
   }
 
