@@ -1,17 +1,24 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useAuth } from '@/lib/auth-context'
-import { useRouter } from 'next/navigation'
-import { useToast } from '@/hooks/use-toast'
-import { supabase } from '@/lib/supabase'
-import { Product } from '@/lib/types'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Slider } from '@/components/ui/slider'
+import { Separator } from '@/components/ui/separator'
+
+import Link from 'next/link'
+import Image from 'next/image'
+import { 
+  Upload, X, GripVertical, Save, Eye, AlertCircle, CheckCircle, 
+  DollarSign, Package, Globe, ArrowLeft 
+} from 'lucide-react'
 
 const categories = ["Clothing", "Beauty", "Jewelry", "Home", "Electronics"]
 const regions = ["Global", "KR", "JP", "CN"]

@@ -1,18 +1,19 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser } from "@/lib/auth-helpers"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const supabase = createServerSupabaseClient()
+    const { id } = await params
+    const supabase = await createServerSupabaseClient()
     
     // Get current user
-    const user = await getCurrentUser(request)
+    const user = await getCurrentUser(supabase)
     if (!user) {
       return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 })
     }
 
-    const uploadId = params.id
+    const uploadId = id
 
     // Simulate document review process
     await new Promise((resolve) => setTimeout(resolve, 200))

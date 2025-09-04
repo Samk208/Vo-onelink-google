@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole } from "@/lib/types"
-import { encryptSensitiveData } from "@/lib/encryption"
+import { encryptSensitiveData } from '@/lib/encryption';
 import { z } from "zod"
 
 const influencerPayoutSchema = z.object({
@@ -23,10 +23,10 @@ const influencerPayoutSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
     
     // Get current user
-    const user = await getCurrentUser(request)
+    const user = await getCurrentUser(supabase)
     if (!user) {
       return NextResponse.json(
         { ok: false, error: "Authentication required" },

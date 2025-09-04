@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser } from "@/lib/auth-helpers"
 import { type OnboardingApiResponse, type VerificationDocument } from "@/lib/types"
 import { z } from 'zod'
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabaseClient()
     
     // Get current user
-    const user = await getCurrentUser(request)
+    const user = await getCurrentUser(supabase)
     if (!user) {
       return NextResponse.json(
         { ok: false, error: "Authentication required" },
@@ -120,16 +120,14 @@ export async function POST(request: NextRequest) {
     const documentResults = []
     
     for (const doc of validatedDocuments) {
-      // Validate file upload
-      const validation = validateFileUpload(new File([], doc.file_name, { type: doc.mime_type }), {
-        maxSize: doc.file_size,
-        allowedTypes: [doc.mime_type]
-      })
-      if (!validation.valid) {
+      // Validate file metadata before generating upload URL
+      try {
+        validateFileUpload({ name: doc.file_name, size: doc.file_size, type: doc.mime_type } as File, 'verificationDocument');
+      } catch (e: any) {
         return NextResponse.json(
           { 
             ok: false, 
-            error: validation.error
+            error: e.message
           },
           { status: 400 }
         )
@@ -139,20 +137,21 @@ export async function POST(request: NextRequest) {
       const fileExtension = doc.file_name.toLowerCase().substring(doc.file_name.lastIndexOf('.') + 1)
 
       // Generate secure upload URL with short TTL
-      const uploadResult = await generateSecureUploadUrl('documents', `kyc/${user.id}/${crypto.randomUUID()}-${doc.file_name}`)
-      
-      if (uploadResult.error) {
+      let uploadData
+      try {
+        uploadData = await generateSecureUploadUrl(supabase, 'documents', `kyc/${user.id}/${crypto.randomUUID()}-${doc.file_name}`)
+      } catch (uploadError: any) {
         return NextResponse.json(
           { 
             ok: false, 
-            error: uploadResult.error
+            error: uploadError.message
           },
           { status: 500 }
         )
       }
 
       const documentId = crypto.randomUUID()
-      const storagePath = `kyc/${user.id}/${documentId}-${doc.file_name}`
+      const storagePath = uploadData.path
       
       // Create document record
       const { data: documentRecord, error: docError } = await supabase
@@ -183,7 +182,7 @@ export async function POST(request: NextRequest) {
       documentResults.push({
         id: documentId,
         doc_type: doc.document_type,
-        upload_url: uploadResult.url,
+        upload_url: uploadData.signedUrl, // The URL to use for the PUT request to upload the file
         storage_path: storagePath,
         expires_in: 900, // 15 minutes
       })

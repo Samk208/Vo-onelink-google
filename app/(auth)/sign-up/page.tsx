@@ -13,8 +13,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { z } from "zod"
+import type { Icon } from "@/lib/types"
 
 const signUpSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -32,8 +34,8 @@ const signUpSchema = z.object({
 
 type SignUpForm = z.infer<typeof signUpSchema>
 
-const StoreIcon = () => (
-  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+const StoreIcon: Icon = ({ className }) => (
+  <svg className={className || "h-6 w-6"} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -43,8 +45,8 @@ const StoreIcon = () => (
   </svg>
 )
 
-const UsersIcon = () => (
-  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+const UsersIcon: Icon = ({ className }) => (
+  <svg className={className || "h-6 w-6"} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -54,8 +56,8 @@ const UsersIcon = () => (
   </svg>
 )
 
-const ShoppingBagIcon = () => (
-  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+const ShoppingBagIcon: Icon = ({ className }) => (
+  <svg className={className || "h-6 w-6"} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -71,18 +73,27 @@ const roleOptions = [
     label: "Supplier",
     description: "I want to sell products through influencers",
     icon: StoreIcon,
+    badge: "Business",
+    color: "bg-green-50 border-green-200 text-green-800",
+    features: ["Product management", "Commission tracking", "Analytics dashboard", "Brand verification"]
   },
   {
     value: "influencer",
     label: "Influencer",
     description: "I want to create my shop and earn commissions",
     icon: UsersIcon,
+    badge: "Creator",
+    color: "bg-purple-50 border-purple-200 text-purple-800",
+    features: ["Personal storefront", "Commission earnings", "Social media integration", "Identity verification"]
   },
   {
     value: "customer",
     label: "Customer",
     description: "I want to shop from my favorite influencers",
     icon: ShoppingBagIcon,
+    badge: "Shopper",
+    color: "bg-blue-50 border-blue-200 text-blue-800",
+    features: ["Personalized shopping", "Follow creators", "Exclusive deals", "Easy checkout"]
   },
 ]
 
@@ -104,6 +115,8 @@ export default function SignUpPage() {
       role: undefined,
     },
   })
+
+  const watchedRole = form.watch("role")
 
   const onSubmit = async (data: SignUpForm) => {
     setIsLoading(true)
@@ -137,12 +150,11 @@ export default function SignUpPage() {
         description: "Welcome to One-Link! Let's set up your profile.",
       })
 
-      const redirectPath =
-        result.role === "supplier"
-          ? "/dashboard/supplier"
-          : result.role === "influencer"
-            ? "/dashboard/influencer"
-            : "/shop/example-handle"
+      // Enhanced routing: Direct to advanced onboarding for suppliers and influencers
+      const redirectPath = 
+        result.role === "supplier" || result.role === "influencer"
+          ? `/auth/onboarding?role=${result.role === "supplier" ? "brand" : "influencer"}`
+          : "/shop"
 
       router.push(redirectPath)
     } catch (err) {
@@ -162,7 +174,7 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 py-12">
-      <div className="w-full max-w-2xl space-y-8">
+      <div className="w-full max-w-4xl space-y-8">
         {/* Skip to main content link */}
         <a
           href="#main-content"
@@ -260,12 +272,12 @@ export default function SignUpPage() {
             {/* Sign Up Form */}
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                {/* Role Selection */}
+                {/* Enhanced Role Selection */}
                 <FormField
                   control={form.control}
                   name="role"
                   render={({ field }) => (
-                    <FormItem className="space-y-3">
+                    <FormItem className="space-y-4">
                       <FormLabel className="text-base font-medium">I am a... *</FormLabel>
                       <FormControl>
                         <RadioGroup
@@ -276,19 +288,39 @@ export default function SignUpPage() {
                         >
                           {roleOptions.map((option) => {
                             const Icon = option.icon
+                            const isSelected = field.value === option.value
                             return (
                               <div key={option.value} className="flex items-center space-x-3">
                                 <RadioGroupItem value={option.value} id={option.value} className="mt-1" />
                                 <Label
                                   htmlFor={option.value}
-                                  className="flex-1 cursor-pointer p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors focus-within:ring-2 focus-within:ring-indigo-500 focus-within:ring-offset-2"
+                                  className={`flex-1 cursor-pointer p-4 rounded-lg border-2 transition-all duration-200 ${
+                                    isSelected
+                                      ? "border-indigo-500 bg-indigo-50 shadow-md"
+                                      : "border-gray-200 hover:border-indigo-300 hover:bg-gray-50"
+                                  }`}
                                 >
-                                  <div className="flex items-start space-x-3">
-                                    <Icon />
-                                    <div>
-                                      <div className="font-medium text-gray-900 dark:text-white">{option.label}</div>
-                                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                                  <div className="flex items-start space-x-4">
+                                    <div className={`p-2 rounded-lg ${isSelected ? "bg-indigo-100" : "bg-gray-100"}`}>
+                                      <Icon className={isSelected ? "text-indigo-600" : "text-gray-600"} />
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <div className="font-semibold text-gray-900 dark:text-white">{option.label}</div>
+                                        <Badge variant="secondary" className={`text-xs ${option.color}`}>
+                                          {option.badge}
+                                        </Badge>
+                                      </div>
+                                      <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                                         {option.description}
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-1 text-xs text-gray-500">
+                                        {option.features.map((feature, idx) => (
+                                          <div key={idx} className="flex items-center">
+                                            <div className="w-1 h-1 bg-gray-400 rounded-full mr-2"></div>
+                                            {feature}
+                                          </div>
+                                        ))}
                                       </div>
                                     </div>
                                   </div>
@@ -302,6 +334,24 @@ export default function SignUpPage() {
                     </FormItem>
                   )}
                 />
+
+                {/* Enhanced Onboarding Preview */}
+                {watchedRole && (watchedRole === "supplier" || watchedRole === "influencer") && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-900 mb-2">
+                      🚀 What happens next?
+                    </h4>
+                    <p className="text-sm text-blue-800 mb-3">
+                      After creating your account, you'll complete a comprehensive onboarding process including:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-blue-700">
+                      <div>✓ Profile setup</div>
+                      <div>✓ Identity verification</div>
+                      <div>✓ Document upload</div>
+                      <div>✓ Payment setup</div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Name Fields */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -585,10 +635,20 @@ export default function SignUpPage() {
 
                 <Button
                   type="submit"
-                  className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 text-white font-medium"
+                  className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 text-white font-medium text-base"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Creating account..." : "Create account"}
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Creating account...
+                    </>
+                  ) : (
+                    "Create account"
+                  )}
                 </Button>
               </form>
             </Form>

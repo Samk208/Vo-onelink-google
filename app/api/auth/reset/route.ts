@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { resetPasswordSchema } from "@/lib/validators"
 import { createAuthErrorResponse } from "@/lib/auth-helpers"
 import type { AuthResponse } from "@/lib/types"

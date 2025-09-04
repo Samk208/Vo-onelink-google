@@ -47,13 +47,15 @@ interface ProductCardProps {
   showSupplier?: boolean
   size?: "sm" | "md" | "lg"
   className?: string
+  onQuickView?: (product: Product) => void
 }
 
 export function ProductCard({ 
   product, 
   showSupplier = true, 
   size = "md", 
-  className 
+  className,
+  onQuickView
 }: ProductCardProps) {
   const { addItem, isInCart, getCartItem, updateQuantity } = useCartStore()
   const [isWishlisted, setIsWishlisted] = useState(false)
@@ -103,24 +105,30 @@ export function ProductCard({
   }
 
   return (
-    <Card className={cn(
-      "group overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300 bg-white",
-      cardSizes[size],
-      className
-    )}>
-      {/* Image Section */}
+    <Card 
+      data-testid="product-card"
+      className={cn(
+        "group overflow-hidden border-0 shadow-md hover:shadow-xl transition-all duration-300 bg-white",
+        cardSizes[size],
+        className
+      )}
+    >
+      {/* Image Section - Fixed positioning */}
       <div className={cn(
         "relative overflow-hidden bg-gray-100",
         imageSizes[size]
       )}>
-        <Link href={`/products/${product.id}`}>
-          <Image
-            src={!imageError && product.images[0] ? product.images[0] : "/placeholder.svg"}
-            alt={product.title}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
-            onError={() => setImageError(true)}
-          />
+        <Link href={`/products/${product.id}`} className="block w-full h-full">
+          <div className="relative w-full h-full">
+            <Image
+              src={!imageError && product.images[0] ? product.images[0] : "/placeholder.svg"}
+              alt={product.title}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={() => setImageError(true)}
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            />
+          </div>
         </Link>
 
         {/* Overlays and Badges */}
@@ -157,11 +165,9 @@ export function ProductCard({
             size="sm"
             variant="ghost"
             className="h-8 w-8 rounded-full bg-white/90 hover:bg-white"
-            asChild
+            onClick={() => onQuickView?.(product)}
           >
-            <Link href={`/products/${product.id}`}>
-              <Eye className="h-4 w-4 text-gray-600" />
-            </Link>
+            <Eye className="h-4 w-4 text-gray-600" />
           </Button>
           <Button
             size="sm"
@@ -196,13 +202,15 @@ export function ProductCard({
         {showSupplier && (
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <div className="flex items-center gap-1">
-              <Image
-                src={product.supplier.avatar_url || "/placeholder.svg"}
-                alt={product.supplier.name}
-                width={16}
-                height={16}
-                className="rounded-full"
-              />
+              <div className="relative w-4 h-4">
+                <Image
+                  src={product.supplier.avatar_url || "/placeholder.svg"}
+                  alt={product.supplier.name}
+                  fill
+                  className="rounded-full object-cover"
+                  sizes="16px"
+                />
+              </div>
               <span className="font-medium">{product.supplier.name}</span>
               {product.supplier.verified && (
                 <CheckCircle className="h-3 w-3 text-blue-500" />

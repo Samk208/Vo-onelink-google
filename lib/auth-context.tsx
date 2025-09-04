@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createClientSupabaseClient } from '@/lib/supabase/client'
 import { User, UserRole } from '@/lib/types'
 
 interface AuthContextType {
@@ -16,7 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClientComponentClient()
+  const supabase = createClientSupabaseClient()
 
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
     try {

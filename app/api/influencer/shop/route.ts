@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole } from "@/lib/types"
@@ -47,10 +47,10 @@ export interface InfluencerShopData {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
     
     // Get current user and check permissions
-    const user = await getCurrentUser(request)
+    const user = await getCurrentUser(supabase)
     if (!user) {
       return NextResponse.json(
         { ok: false, error: "Authentication required" },
@@ -206,9 +206,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = await createServerSupabaseClient()
     
-    const user = await getCurrentUser(request)
+    const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.INFLUENCER])) {
       return NextResponse.json(
         { ok: false, error: "Influencer access required" },

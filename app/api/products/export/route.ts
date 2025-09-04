@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
 import { stringify } from "csv-stringify/sync"
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createServerSupabaseClient()
     
     // Get current user and check permissions
-    const user = await getCurrentUser(request)
+    const user = await getCurrentUser(supabase)
     if (!user) {
       return NextResponse.json(
         { ok: false, error: "Authentication required" },

@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+export const runtime = 'nodejs'
+
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { paginationSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type PaginatedResponse, type Order } from "@/lib/types"
@@ -7,7 +9,8 @@ import { UserRole, type PaginatedResponse, type Order } from "@/lib/types"
 // GET /api/orders - List orders for current user or all orders for admins
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request)
+    const supabase = await createServerSupabaseClient()
+    const user = await getCurrentUser(supabase)
     if (!user) {
       return NextResponse.json(
         { ok: false, message: "Unauthorized" },
@@ -26,7 +29,6 @@ export async function GET(request: NextRequest) {
     }
 
     const { page, limit } = validation.data
-    const supabase = await createServerSupabaseClient()
 
     let query = supabase
       .from('orders')

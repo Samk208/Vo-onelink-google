@@ -1,18 +1,19 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { verificationReviewSchema, uuidSchema } from "@/lib/validators"
 import { UserRole, type OnboardingApiResponse, type VerificationRequest } from "@/lib/types"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { requestId: string } }
+  { params }: { params: Promise<{ requestId: string }> }
 ) {
   try {
+    const { requestId } = await params
     const supabase = await createServerSupabaseClient()
     
     // Get current user and check admin permissions
-    const user = await getCurrentUser(request)
+    const user = await getCurrentUser(supabase)
     if (!user) {
       return NextResponse.json(
         { ok: false, error: "Authentication required" },
@@ -28,7 +29,7 @@ export async function POST(
     }
 
     // Validate request ID
-    const requestIdValidation = uuidSchema.safeParse(params.requestId)
+    const requestIdValidation = uuidSchema.safeParse(requestId)
     if (!requestIdValidation.success) {
       return NextResponse.json(
         { ok: false, error: "Invalid request ID" },
@@ -69,7 +70,7 @@ export async function POST(
     const { data: verificationRequest, error: fetchError } = await supabase
       .from('verification_requests')
       .select('*')
-      .eq('id', params.requestId)
+      .eq('id', requestId)
       .single()
 
     if (fetchError) {
@@ -102,7 +103,7 @@ export async function POST(
         reviewed_by: user.id,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.requestId)
+      .eq('id', requestId)
       .select()
       .single()
 
@@ -138,7 +139,7 @@ export async function POST(
     // - Send webhook event
     // - Update user dashboard status
 
-    console.log(`Verification request ${params.requestId} ${status} by admin ${user.id}`)
+    console.log(`Verification request ${requestId} ${status} by admin ${user.id}`)
 
     return NextResponse.json({
       ok: true,

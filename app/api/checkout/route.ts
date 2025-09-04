@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient, supabaseAdmin } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { stripe, formatAmountForStripe } from "@/lib/stripe"
 import { checkoutSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
@@ -7,7 +8,8 @@ import { UserRole, type ApiResponse } from "@/lib/types"
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request)
+    const supabase = await createServerSupabaseClient()
+    const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.CUSTOMER])) {
       return NextResponse.json(
         { ok: false, message: "Unauthorized" },
@@ -31,7 +33,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { items, shippingAddress, billingAddress } = validation.data
-    const supabase = createServerSupabaseClient()
 
     // Fetch product details and calculate total
     const productIds = items.map(item => item.productId)

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { verifyUserSchema, uuidSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
@@ -14,10 +14,11 @@ interface VerifyUserResult {
 // PUT /api/admin/users/[id]/verify - Verify or unverify a user (admin only)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getCurrentUser(request)
+    const supabase = await createServerSupabaseClient()
+    const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.ADMIN])) {
       return NextResponse.json(
         { ok: false, message: "Unauthorized" },
@@ -25,7 +26,8 @@ export async function PUT(
       )
     }
 
-    const validation = uuidSchema.safeParse(params.id)
+    const { id } = await params
+    const validation = uuidSchema.safeParse(id)
     if (!validation.success) {
       return NextResponse.json(
         { ok: false, message: "Invalid user ID" },
@@ -49,13 +51,12 @@ export async function PUT(
     }
 
     const { verified, notes } = verifyValidation.data
-    const supabase = await createServerSupabaseClient()
 
     // Check if user exists
     const { data: targetUser, error: fetchError } = await supabase
       .from('users')
       .select('id, email, name, role')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (fetchError || !targetUser) {
@@ -72,7 +73,7 @@ export async function PUT(
         verified,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', params.id)
+      .eq('id', id)
       .select('id, verified, updated_at')
       .single()
 

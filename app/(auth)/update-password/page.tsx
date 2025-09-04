@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { toast } from "@/hooks/use-toast"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { createBrowserClient } from '@supabase/ssr'
 
 const updatePasswordSchema = z
   .object({
@@ -37,7 +37,10 @@ export default function UpdatePasswordPage() {
   const [error, setError] = useState("")
   const [isMounted, setIsMounted] = useState(false)
   const router = useRouter()
-  const supabase = createClientComponentClient()
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
   useEffect(() => {
     setIsMounted(true)
@@ -55,19 +58,23 @@ export default function UpdatePasswordPage() {
     setIsLoading(true)
     setError("")
 
-    const { error } = await supabase.auth.updateUser({ password: data.password })
+    try {
+      const { error } = await supabase.auth.updateUser({ password: data.password })
 
-    if (error) {
-      setError(error.message)
-    } else {
-      toast({
-        title: "Password updated successfully!",
-        description: "You can now sign in with your new password.",
-      })
-      router.push("/sign-in")
+      if (error) {
+        setError(error.message)
+      } else {
+        toast({
+          title: "Password updated successfully!",
+          description: "You can now sign in with your new password.",
+        })
+        router.push("/sign-in")
+      }
+    } catch (error) {
+      setError("An unexpected error occurred")
+    } finally {
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   if (!isMounted) {

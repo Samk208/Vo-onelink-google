@@ -78,7 +78,7 @@ export function InfluencerShopClient({ influencer, products, handle }: Influence
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
-    let filtered = products.filter(product => {
+    const filtered = products.filter(product => {
       const matchesSearch = product.title.toLowerCase().includes(searchQuery.toLowerCase())
       const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory
       const matchesRegion = selectedRegion === 'All' || product.region === selectedRegion

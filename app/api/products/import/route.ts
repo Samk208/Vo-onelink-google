@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
 import { z } from "zod"
@@ -32,9 +32,10 @@ const productImportSchema = z.object({
 })
 
 // POST /api/products/import - Import products from CSV (suppliers/admins only)
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const user = await getCurrentUser(request)
+    const supabase = await createServerSupabaseClient()
+    const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.SUPPLIER, UserRole.ADMIN])) {
       return NextResponse.json(
         { ok: false, message: "Unauthorized" },
@@ -58,7 +59,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { data, dryRun = false } = validation.data
-    const supabase = await createServerSupabaseClient()
 
     // Parse CSV data (expecting header row)
     const records = data.map((row) => row.split(','))

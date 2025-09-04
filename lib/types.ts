@@ -279,3 +279,6 @@ export interface UserOnboardingData {
   brandCommissionDefaults?: BrandCommissionDefaults
   influencerPayouts?: InfluencerPayouts
 }
+
+// Icon type for Lucide icons and other icon components
+export type Icon = React.ComponentType<{ className?: string; size?: number }>
