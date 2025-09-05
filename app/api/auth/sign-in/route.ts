@@ -1,12 +1,16 @@
+export const runtime = 'nodejs'
+
 import { type NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient, supabaseAdmin } from '@/lib/supabase'
+import { cookies } from "next/headers"
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { signInSchema } from '@/lib/validators'
 import { createAuthErrorResponse, createAuthSuccessResponse } from '@/lib/auth-helpers'
 import { type AuthResponse } from "@/lib/types"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     console.log('Sign-in attempt started')
+    const cookieStore = cookies()
     const supabase = await createServerSupabaseClient()
 
     let body
@@ -55,8 +59,8 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('Supabase auth successful, fetching user profile...')
-    // Get user profile from database using admin client
-    const { data: user, error: userError } = await supabaseAdmin
+    // Get user profile from database
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
       .eq('email', email)

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { type ApiResponse } from "@/lib/types"
 
 export interface PublicShopData {
@@ -37,8 +37,9 @@ export interface PublicShopData {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { handle: string } }
+  { params }: { params: Promise<{ handle: string }> }
 ) {
+  const { handle } = await params
   try {
     const supabase = await createServerSupabaseClient()
     
@@ -56,7 +57,7 @@ export async function GET(
         verified,
         social_links
       `)
-      .eq('handle', params.handle)
+      .eq('handle', handle)
       .eq('role', 'influencer')
       .single()
 

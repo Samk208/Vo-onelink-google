@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+export const runtime = 'nodejs'
+
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
 import * as z from "zod"

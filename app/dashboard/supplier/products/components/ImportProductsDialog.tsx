@@ -53,13 +53,19 @@ export function ImportProductsDialog({ open, onOpenChange }: ImportProductsDialo
   const [step, setStep] = useState<"upload" | "preview" | "processing" | "complete">("upload")
   const [file, setFile] = useState<File | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
-  const [dryRun, setDryRun] = useState(true)
-  const [importData, setImportData] = useState<ImportRow[]>([])
-  const [progress, setProgress] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [importData, setImportData] = useState<ImportRow[]>([])
   const [showAllRows, setShowAllRows] = useState(false)
+  const [dryRun, setDryRun] = useState(true)
+  // State for file upload handling
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([])
 
-  // Mock import results
+  // Mock import results (commented out for now)
+  /*
   const mockImportResults: ImportRow[] = [
     {
       row: 1,
@@ -111,6 +117,7 @@ export function ImportProductsDialog({ open, onOpenChange }: ImportProductsDialo
       },
     })),
   ]
+  */
 
   const summary: ImportSummary = useMemo(() => {
     return importData.reduce(
@@ -176,8 +183,8 @@ export function ImportProductsDialog({ open, onOpenChange }: ImportProductsDialo
 
   const handleFileUpload = useCallback(async (file: File) => {
     try {
-      setUploading(true)
-      setUploadError('')
+      setIsUploading(true)
+      setUploadError(null)
       
       // Simulate file upload
       await new Promise(resolve => setTimeout(resolve, 1000))
@@ -192,16 +199,16 @@ export function ImportProductsDialog({ open, onOpenChange }: ImportProductsDialo
       }
       
       setUploadedFiles(prev => [...prev, newFile])
-      setUploadSuccess(`Successfully uploaded ${file.name}`)
+      setUploadSuccess(true)
       
       // Clear success message after 3 seconds
-      setTimeout(() => setUploadSuccess(''), 3000)
+      setTimeout(() => setUploadSuccess(false), 3000)
       
     } catch (error) {
       console.error('Upload error:', error)
       setUploadError('Failed to upload file')
     } finally {
-      setUploading(false)
+      setIsUploading(false)
     }
   }, [])
 

@@ -1,10 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient, supabaseAdmin } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { signUpSchema } from "@/lib/validators"
 import { createAuthErrorResponse, createAuthSuccessResponse, createUserProfile, getUserByEmail } from "@/lib/auth-helpers"
 import { type AuthResponse } from "@/lib/types"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // Test Supabase connection first
     console.log('Testing Supabase connection...')

@@ -1,266 +1,261 @@
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { type SupabaseClient } from "@supabase/supabase-js"
 
-export interface UploadResult {
-  success: boolean
-  url?: string
-  error?: string
-  path?: string
-}
-
-export interface StorageConfig {
-  bucket: string
-  folder?: string
-  maxSize?: number
-  allowedTypes?: string[]
-}
-
-/**
- * Upload a file to Supabase Storage
- */
-export async function uploadFile(
-  file: File,
-  config: StorageConfig
-): Promise<UploadResult> {
-  try {
-    const supabase = createServerSupabaseClient()
-    
-    // Validate file size
-    if (config.maxSize && file.size > config.maxSize) {
-      return {
-        success: false,
-        error: `File size exceeds ${config.maxSize / 1024 / 1024}MB limit`
-      }
-    }
-
-    // Validate file type
-    if (config.allowedTypes && !config.allowedTypes.includes(file.type)) {
-      return {
-        success: false,
-        error: `File type ${file.type} not allowed`
-      }
-    }
-
-    // Generate unique filename
-    const timestamp = Date.now()
-    const randomString = Math.random().toString(36).substring(2, 15)
-    const fileExtension = file.name.split('.').pop()
-    const fileName = `${timestamp}_${randomString}.${fileExtension}`
-    
-    // Construct file path
-    const filePath = config.folder 
-      ? `${config.folder}/${fileName}`
-      : fileName
-
-    // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from(config.bucket)
-      .upload(filePath, file)
-
-    if (error) {
-      return {
-        success: false,
-        error: error.message
-      }
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(config.bucket)
-      .getPublicUrl(filePath)
-
-    return {
-      success: true,
-      url: urlData.publicUrl,
-      path: filePath
-    }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Upload failed'
-    }
-  }
-}
-
-/**
- * Delete a file from Supabase Storage
- */
-export async function deleteFile(
-  bucket: string,
-  path: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const supabase = createServerSupabaseClient()
-    
-    const { error } = await supabase.storage
-      .from(bucket)
-      .remove([path])
-
-    if (error) {
-      return {
-        success: false,
-        error: error.message
-      }
-    }
-
-    return { success: true }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Delete failed'
-    }
-  }
-}
-
-/**
- * Get signed URL for private files
- */
-export async function getSignedUrl(
-  bucket: string,
-  path: string,
-  expiresIn: number = 3600
-): Promise<{ success: boolean; url?: string; error?: string }> {
-  try {
-    const supabase = createServerSupabaseClient()
-    
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .createSignedUrl(path, expiresIn)
-
-    if (error) {
-      return {
-        success: false,
-        error: error.message
-      }
-    }
-
-    return {
-      success: true,
-      url: data.signedUrl
-    }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to get signed URL'
-    }
-  }
-}
-
-/**
- * List files in a storage bucket folder
- */
-export async function listFiles(
-  bucket: string,
-  folder?: string,
-  limit: number = 100
-): Promise<{ success: boolean; files?: any[]; error?: string }> {
-  try {
-    const supabase = createServerSupabaseClient()
-    
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .list(folder, {
-        limit,
-        sortBy: { column: 'created_at', order: 'desc' }
-      })
-
-    if (error) {
-      return {
-        success: false,
-        error: error.message
-      }
-    }
-
-    return {
-      success: true,
-      files: data
-    }
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to list files'
-    }
-  }
-}
-
-/**
- * Generate a secure upload URL for client-side uploads
- */
-export async function generateSecureUploadUrl(
-  bucket: string,
-  path: string,
-  expiresIn: number = 3600 // 1 hour default
-): Promise<{ url: string; error?: string }> {
-  try {
-    const supabase = createServerSupabaseClient()
-    
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .createSignedUploadUrl(path, {
-        upsert: false
-      })
-
-    if (error) {
-      return { url: '', error: error.message }
-    }
-
-    return { url: data.signedUrl }
-  } catch (error) {
-    return { 
-      url: '', 
-      error: error instanceof Error ? error.message : 'Failed to generate upload URL' 
-    }
-  }
-}
-
-/**
- * Validate file upload based on size, type, and other criteria
- */
-export function validateFileUpload(
-  file: File,
-  options: {
-    maxSize?: number
-    allowedTypes?: string[]
-    maxDimensions?: { width: number; height: number }
-  } = {}
-): { valid: boolean; error?: string } {
-  const { maxSize = 10 * 1024 * 1024, allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] } = options
-
-  // Check file size
-  if (file.size > maxSize) {
-    return {
-      valid: false,
-      error: `File size exceeds ${Math.round(maxSize / 1024 / 1024)}MB limit`
-    }
-  }
-
-  // Check file type
-  if (!allowedTypes.includes(file.type)) {
-    return {
-      valid: false,
-      error: `File type ${file.type} not allowed. Allowed types: ${allowedTypes.join(', ')}`
-    }
-  }
-
-  return { valid: true }
-}
-
-// Common storage configurations
-export const STORAGE_CONFIGS = {
-  documents: {
-    bucket: 'documents',
-    folder: 'onboarding',
-    maxSize: 10 * 1024 * 1024, // 10MB
-    allowedTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+export const fileConfig = {
+  brandLogo: {
+    maxSize: 1024 * 1024 * 2, // 2MB
+    allowedTypes: ["image/jpeg", "image/png", "image/webp"] as string[],
   },
-  products: {
-    bucket: 'products',
-    folder: 'images',
-    maxSize: 5 * 1024 * 1024, // 5MB
-    allowedTypes: ['image/jpeg', 'image/png', 'image/webp']
+  productImage: {
+    maxSize: 1024 * 1024 * 4, // 4MB
+    allowedTypes: ["image/jpeg", "image/png", "image/webp"] as string[],
   },
-  avatars: {
-    bucket: 'avatars',
-    maxSize: 2 * 1024 * 1024, // 2MB
-    allowedTypes: ['image/jpeg', 'image/png', 'image/webp']
+  verificationDocument: {
+    maxSize: 1024 * 1024 * 10, // 10MB
+    allowedTypes: ["application/pdf", "image/jpeg", "image/png"] as string[],
+  },
+  digitalProduct: {
+    maxSize: 1024 * 1024 * 100, // 100MB
+    allowedTypes: [] as string[], // Allow any for now, can be restricted
+  },
+  importCsv: {
+    maxSize: 1024 * 1024 * 5, // 5MB
+    allowedTypes: ["text/csv"] as string[],
+  },
+}
+
+export async function uploadBrandLogo(supabase: SupabaseClient, file: File, brandId: string) {
+  if (!file || !brandId) {
+    throw new Error("File and brand ID are required.")
   }
-} as const
+
+  const fileExt = file.name.split(".").pop()
+  const fileName = `${brandId}.${fileExt}`
+  const filePath = `public/${fileName}`
+
+  const { error } = await supabase.storage.from("brand-logos").upload(filePath, file, { upsert: true })
+
+  if (error) {
+    console.error("Error uploading brand logo:", error)
+    throw new Error(`Storage error: ${error.message}`)
+  }
+
+  const { data } = await supabase.storage.from("brand-logos").getPublicUrl(filePath)
+
+  return data.publicUrl
+}
+
+/**
+ * Uploads a product image to Supabase Storage.
+ * @param supabase The Supabase client instance.
+ * @param file The image file to upload.
+ * @param productId The ID of the product.
+ * @returns The public URL of the uploaded image.
+ */
+export async function uploadProductImage(supabase: SupabaseClient, file: File, productId: string): Promise<string> {
+  if (!file || !productId) {
+    throw new Error("File and product ID are required.")
+  }
+
+  const fileExt = file.name.split(".").pop()
+  if (!fileExt) {
+    throw new Error("File extension is missing.")
+  }
+
+  const validExtensions = ["png", "jpg", "jpeg", "webp"]
+  if (!validExtensions.includes(fileExt.toLowerCase())) {
+    throw new Error(`Invalid file type. Only ${validExtensions.join(", ")} are allowed.`)
+  }
+
+  const fileName = `${productId}-${Date.now()}.${fileExt}`
+  const filePath = `products/${fileName}`
+
+  const { error: uploadError } = await supabase.storage
+    .from("product-images")
+    .upload(filePath, file)
+
+  if (uploadError) {
+    console.error("Error uploading product image:", uploadError)
+    throw new Error(`Storage error: ${uploadError.message}`)
+  }
+
+  const { data } = await supabase.storage.from("product-images").getPublicUrl(filePath)
+
+  return data.publicUrl
+}
+
+/**
+ * Deletes a product image from Supabase Storage.
+ * @param supabase The Supabase client instance.
+ * @param imageUrl The URL of the image to delete.
+ */
+export async function deleteProductImage(supabase: SupabaseClient, imageUrl: string): Promise<void> {
+  if (!imageUrl) {
+    return
+  }
+
+  const filePath = new URL(imageUrl).pathname.split("/product-images/")[1]
+
+  if (!filePath) {
+    console.warn("Could not determine file path from image URL.")
+    return
+  }
+
+  const { error } = await supabase.storage.from("product-images").remove([filePath])
+
+  if (error) {
+    console.error("Error deleting product image:", error)
+    // Don't throw here, just log the error
+  }
+}
+
+/**
+ * Uploads a verification document for KYC.
+ * @param supabase The Supabase client instance.
+ * @param file The document file to upload.
+ * @param userId The ID of the user.
+ * @param documentType The type of the document.
+ * @returns The path of the uploaded file in the storage bucket.
+ */
+export async function uploadVerificationDocument(
+  supabase: SupabaseClient,
+  file: File,
+  userId: string,
+  documentType: string
+): Promise<string> {
+  const filePath = `kyc/${userId}/${documentType}/${file.name}`
+
+  const { error } = await supabase.storage.from("verification-documents").upload(filePath, file, {
+    upsert: true, // Replace if exists
+  })
+
+  if (error) {
+    throw new Error(`Failed to upload verification document: ${error.message}`)
+  }
+
+  return filePath
+}
+
+/**
+ * Creates a signed URL to access a verification document.
+ * @param supabase The Supabase client instance.
+ * @param filePath The path of the file in the storage bucket.
+ * @returns A signed URL with a 15-minute expiration time.
+ */
+export async function getVerificationDocumentUrl(supabase: SupabaseClient, filePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("verification-documents")
+    .createSignedUrl(filePath, 900) // 900 seconds = 15 minutes
+
+  if (error) {
+    throw new Error(`Failed to create signed URL: ${error.message}`)
+  }
+
+  return data.signedUrl
+}
+
+/**
+ * Uploads a file for a digital product.
+ * @param supabase The Supabase client instance.
+ * @param file The file to upload.
+ * @param productId The ID of the product.
+ * @returns The path of the uploaded file.
+ */
+export async function uploadDigitalProductFile(supabase: SupabaseClient, file: File, productId: string): Promise<string> {
+  const filePath = `digital-products/${productId}/${file.name}`
+
+  const { error } = await supabase.storage.from("digital-assets").upload(filePath, file, { upsert: true })
+
+  if (error) {
+    throw new Error(`Failed to upload digital product file: ${error.message}`)
+  }
+
+  return filePath
+}
+
+/**
+ * Gets a secure, expiring download link for a digital product.
+ * @param supabase The Supabase client instance.
+ * @param filePath The path of the file in the storage bucket.
+ * @returns A signed URL valid for a limited time.
+ */
+export async function getDigitalProductDownloadUrl(supabase: SupabaseClient, filePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("digital-assets")
+    .createSignedUrl(filePath, 3600) // 1 hour expiration
+
+  if (error) {
+    throw new Error(`Failed to get download URL: ${error.message}`)
+  }
+
+  return data.signedUrl
+}
+
+/**
+ * Uploads a CSV file for bulk product import.
+ * @param supabase The Supabase client instance.
+ * @param file The CSV file.
+ * @param userId The ID of the user performing the import.
+ * @returns The path of the uploaded CSV file.
+ */
+export async function uploadImportCsv(supabase: SupabaseClient, file: File, userId: string): Promise<string> {
+  const filePath = `imports/${userId}/products-${Date.now()}.csv`
+
+  const { error } = await supabase.storage.from("imports").upload(filePath, file)
+
+  if (error) {
+    throw new Error(`Failed to upload CSV: ${error.message}`)
+  }
+
+  return filePath
+}
+
+/**
+ * Downloads and reads the content of a CSV file from storage.
+ * @param supabase The Supabase client instance.
+ * @param filePath The path of the CSV file in the storage bucket.
+ * @returns The text content of the CSV file.
+ */
+export async function readCsvFromStorage(supabase: SupabaseClient, filePath: string): Promise<string> {
+  const { data, error } = await supabase.storage.from("imports").download(filePath)
+
+  if (error) {
+    throw new Error(`Failed to download CSV from storage: ${error.message}`)
+  }
+
+  return data.text()
+}
+
+/**
+ * Validates a file against size and type constraints.
+ * @param file The file to validate.
+ * @param type The type of file from fileConfig.
+ */
+export function validateFileUpload(file: File, type: keyof typeof fileConfig) {
+  const config = fileConfig[type]
+
+  if (file.size > config.maxSize) {
+    throw new Error(`File is too large. Max size is ${config.maxSize / 1024 / 1024}MB.`)
+  }
+
+  if (config.allowedTypes.length > 0 && !config.allowedTypes.includes(file.type)) {
+    throw new Error(`Invalid file type. Allowed types are: ${config.allowedTypes.join(", ")}.`)
+  }
+}
+
+/**
+ * Generates a secure, pre-signed URL for uploading a file.
+ * This is useful for client-side uploads directly to Supabase Storage.
+ * @param supabase The Supabase client instance.
+ * @param bucket The storage bucket name.
+ * @param path The path where the file will be stored.
+ * @returns The pre-signed URL for the upload.
+ */
+export async function generateSecureUploadUrl(supabase: SupabaseClient, bucket: string, path: string) {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUploadUrl(path)
+
+  if (error) {
+    throw new Error(`Failed to create secure upload URL: ${error.message}`)
+  }
+
+  return data
+}

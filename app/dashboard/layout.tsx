@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { VerificationBanner } from "@/components/ui/verification-banner"
+import { VerificationBannerWrapper } from "@/components/ui/verification-banner"
 import {
   LayoutDashboard,
   Package,
@@ -160,12 +160,9 @@ export default function DashboardLayout({
 
           {/* Main content */}
           <main className="flex-1 p-4 sm:p-6 lg:p-8">
-            <VerificationBanner
+            <VerificationBannerWrapper
               userRole={user.role === "supplier" ? "brand" : "influencer"}
               verificationStatus={user.verificationStatus}
-              onDismiss={() => {
-                console.log("[v0] Verification banner dismissed")
-              }}
             />
             {children}
           </main>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase/client' // Direct client import to avoid server bundling
 import type { Product } from '@/lib/types'
 
 interface UseProductsParams {
@@ -35,20 +35,15 @@ export function useProducts(params: UseProductsParams = {}): UseProductsReturn {
     try {
       setLoading(true)
       setError(null)
+      console.log('Fetching products with params:', { page, append, category, search, supplierId, limit })
 
       const offset = (page - 1) * limit
 
-      // Build query
+      // SIMPLIFIED QUERY - No user join to avoid recursion
       let query = supabase
         .from('products')
         .select(`
-          *,
-          users!products_supplier_id_fkey (
-            id,
-            name,
-            email,
-            verified
-          )
+          *
         `, { count: 'exact' })
         .eq('active', true)
         .eq('in_stock', true)
@@ -62,15 +57,21 @@ export function useProducts(params: UseProductsParams = {}): UseProductsReturn {
         query = query.eq('supplier_id', supplierId)
       }
       if (search) {
-        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,tags.cs.{${search}}`)
+        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`)
       }
 
       // Apply pagination
       query = query.range(offset, offset + limit - 1)
 
+      console.log('Executing simplified query...')
       const { data, error, count } = await query
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase query error:', error)
+        throw new Error(`Query failed: ${error.message}`)
+      }
+
+      console.log('Query successful:', { data: data?.length, count })
 
       const newProducts = data || []
       
@@ -83,10 +84,18 @@ export function useProducts(params: UseProductsParams = {}): UseProductsReturn {
       setTotalCount(count || 0)
       setHasMore(newProducts.length === limit && (offset + limit) < (count || 0))
       setCurrentPage(page)
+      
+      console.log('Products state updated:', { 
+        productsCount: newProducts.length, 
+        totalCount: count,
+        hasMore: newProducts.length === limit && (offset + limit) < (count || 0)
+      })
+
     } catch (err) {
       console.error('Error fetching products:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch products')
-      toast.error('Failed to load products')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch products'
+      setError(errorMessage)
+      toast.error('Failed to load products: ' + errorMessage)
     } finally {
       setLoading(false)
     }
@@ -135,18 +144,10 @@ export function useProduct(productId: string | null) {
         setLoading(true)
         setError(null)
 
+        // Simplified query without user join
         const { data, error } = await supabase
           .from('products')
-          .select(`
-            *,
-            users!products_supplier_id_fkey (
-              id,
-              name,
-              email,
-              verified,
-              avatar_url
-            )
-          `)
+          .select('*')
           .eq('id', productId)
           .eq('active', true)
           .single()

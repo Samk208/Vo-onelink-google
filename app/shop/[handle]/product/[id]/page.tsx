@@ -16,15 +16,16 @@ const mockInfluencer = {
 }
 
 interface ProductDetailPageProps {
-  params: {
+  params: Promise<{
     handle: string
     id: string
-  }
+  }>
 }
 
 // Generate metadata for SEO
 export async function generateMetadata({ params }: ProductDetailPageProps): Promise<Metadata> {
   // In a real app, you'd fetch the product data here
+  const { handle, id } = await params
   const product = mockProduct
   const influencer = mockInfluencer
 
@@ -51,11 +52,12 @@ export async function generateMetadata({ params }: ProductDetailPageProps): Prom
       images: [product.images[0]],
     },
     alternates: {
-      canonical: `/shop/${params.handle}/product/${params.id}`,
+      canonical: `/shop/${handle}/product/${id}`,
     },
   }
 }
 
-export default function ProductDetailPage({ params }: ProductDetailPageProps) {
-  return <ProductDetailClient params={params} />
+export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
+  const { handle, id } = await params
+  return <ProductDetailClient params={{ handle, id }} />
 }

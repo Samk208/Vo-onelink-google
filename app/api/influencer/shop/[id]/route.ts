@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
 import { z } from "zod"
@@ -14,9 +14,10 @@ const updateShopProductSchema = z.object({
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const supabase = await createServerSupabaseClient()
     
     const user = await getCurrentUser(supabase)
@@ -45,7 +46,7 @@ export async function PUT(
     const { data: existing, error: fetchError } = await supabase
       .from('influencer_shop_products')
       .select('id, influencer_id')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (fetchError || !existing) {
@@ -71,7 +72,7 @@ export async function PUT(
     const { data: updated, error: updateError } = await supabase
       .from('influencer_shop_products')
       .update(updateData)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -83,7 +84,7 @@ export async function PUT(
       )
     }
 
-    console.log(`🛍️ [AUDIT] Influencer ${user.id} updated shop product ${params.id}`)
+    console.log(`🛍️ [AUDIT] Influencer ${user.id} updated shop product ${id}`)
 
     return NextResponse.json({
       ok: true,
@@ -101,9 +102,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const supabase = await createServerSupabaseClient()
     
     const user = await getCurrentUser(supabase)
@@ -118,7 +120,7 @@ export async function DELETE(
     const { data: existing, error: fetchError } = await supabase
       .from('influencer_shop_products')
       .select('id, influencer_id')
-      .eq('id', params.id)
+      .eq('id', id)
       .single()
 
     if (fetchError || !existing) {
@@ -139,7 +141,7 @@ export async function DELETE(
     const { error: deleteError } = await supabase
       .from('influencer_shop_products')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
 
     if (deleteError) {
       console.error('Shop product delete error:', deleteError)
@@ -149,7 +151,7 @@ export async function DELETE(
       )
     }
 
-    console.log(`🛍️ [AUDIT] Influencer ${user.id} removed product from shop ${params.id}`)
+    console.log(`🛍️ [AUDIT] Influencer ${user.id} removed product from shop ${id}`)
 
     return NextResponse.json({
       ok: true,

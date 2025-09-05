@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { updateProductSchema, uuidSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse, type Product } from "@/lib/types"
@@ -7,10 +7,13 @@ import { UserRole, type ApiResponse, type Product } from "@/lib/types"
 // GET /api/products/[id] - Get single product
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   try {
-    const validation = uuidSchema.safeParse(params.id)
+    const resolvedParams = await params
+    const productId = resolvedParams.id
+
+    const validation = uuidSchema.safeParse(productId)
     if (!validation.success) {
       return NextResponse.json(
         { ok: false, error: "Invalid product ID" },
@@ -29,7 +32,7 @@ export async function GET(
           email
         )
       `)
-      .eq('id', params.id)
+      .eq('id', productId)
       .single()
 
     if (error || !product) {
@@ -55,9 +58,12 @@ export async function GET(
 // PUT /api/products/[id] - Update product (suppliers only)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   try {
+    const resolvedParams = await params
+    const productId = resolvedParams.id
+
     const supabase = await createServerSupabaseClient()
     
     // Get current user and check permissions
@@ -76,7 +82,7 @@ export async function PUT(
       )
     }
 
-    const validation = uuidSchema.safeParse(params.id)
+    const validation = uuidSchema.safeParse(productId)
     if (!validation.success) {
       return NextResponse.json(
         { ok: false, error: "Invalid product ID" },
@@ -88,7 +94,7 @@ export async function PUT(
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
       .select('*')
-      .eq('id', params.id)
+      .eq('id', productId)
       .single()
 
     if (fetchError || !existingProduct) {
@@ -129,7 +135,7 @@ export async function PUT(
         .select('id')
         .eq('supplier_id', existingProduct.supplier_id)
         .eq('sku', updateData.sku)
-        .neq('id', params.id)
+        .neq('id', productId)
         .single()
 
       if (duplicateProduct) {
@@ -145,7 +151,7 @@ export async function PUT(
     }
 
     // Calculate final price if commission is updated
-    let finalUpdateData: any = {
+    const finalUpdateData: any = {
       ...updateData,
       updated_at: new Date().toISOString(),
     }
@@ -175,7 +181,7 @@ export async function PUT(
     const { data: product, error } = await supabase
       .from('products')
       .update(finalUpdateData)
-      .eq('id', params.id)
+      .eq('id', productId)
       .select(`
         *,
         users!products_supplier_id_fkey (
@@ -194,7 +200,7 @@ export async function PUT(
       )
     }
 
-    console.log(`📦 [AUDIT] User ${user.id} updated product ${params.id}`)
+    console.log(`📦 [AUDIT] User ${user.id} updated product ${productId}`)
 
     return NextResponse.json({
       ok: true,
@@ -213,9 +219,12 @@ export async function PUT(
 // DELETE /api/products/[id] - Delete product (suppliers only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   try {
+    const resolvedParams = await params
+    const productId = resolvedParams.id
+
     const supabase = await createServerSupabaseClient()
     
     // Get current user and check permissions
@@ -234,7 +243,7 @@ export async function DELETE(
       )
     }
 
-    const validation = uuidSchema.safeParse(params.id)
+    const validation = uuidSchema.safeParse(productId)
     if (!validation.success) {
       return NextResponse.json(
         { ok: false, error: "Invalid product ID" },
@@ -246,7 +255,7 @@ export async function DELETE(
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
       .select('supplier_id')
-      .eq('id', params.id)
+      .eq('id', productId)
       .single()
 
     if (fetchError || !existingProduct) {
@@ -267,7 +276,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('products')
       .delete()
-      .eq('id', params.id)
+      .eq('id', productId)
 
     if (error) {
       console.error('Product deletion error:', error)
@@ -277,7 +286,7 @@ export async function DELETE(
       )
     }
 
-    console.log(`🗑️ [AUDIT] User ${user.id} deleted product ${params.id}`)
+    console.log(`🗑️ [AUDIT] User ${user.id} deleted product ${productId}`)
 
     return NextResponse.json({
       ok: true,

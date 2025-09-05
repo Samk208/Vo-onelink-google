@@ -129,7 +129,6 @@ export default function SupplierProductsPage() {
       <DataTable 
         columns={columns} 
         data={products}
-        meta={{ deleteProduct }}
       />
 
       {/* Import Dialog */}

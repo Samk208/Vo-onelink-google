@@ -5,12 +5,24 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { DocumentUploader } from "@/components/ui/document-uploader"
-import { AlertCircle, FileText, X } from "lucide-react"
+import { AlertTriangle, X, FileText } from "lucide-react"
 
 interface VerificationBannerProps {
   userRole: "influencer" | "brand"
   verificationStatus: "pending" | "verified" | "rejected"
   onDismiss?: () => void
+}
+
+// Client Component wrapper that handles event handlers
+export function VerificationBannerWrapper(props: VerificationBannerProps) {
+  const handleDismiss = () => {
+    console.log("[v0] Verification banner dismissed")
+    if (props.onDismiss) {
+      props.onDismiss()
+    }
+  }
+
+  return <VerificationBanner {...props} onDismiss={handleDismiss} />
 }
 
 export function VerificationBanner({ userRole, verificationStatus, onDismiss }: VerificationBannerProps) {
@@ -27,7 +39,7 @@ export function VerificationBanner({ userRole, verificationStatus, onDismiss }: 
           title: "Verification in progress",
           description: "We're reviewing your submitted documents. This usually takes 1-2 business days.",
           variant: "default" as const,
-          icon: AlertCircle,
+          icon: AlertTriangle,
           actionText: "View documents",
           showAction: true,
         }
@@ -36,7 +48,7 @@ export function VerificationBanner({ userRole, verificationStatus, onDismiss }: 
           title: "Verification required",
           description: "Some documents need to be resubmitted. Please review and upload new documents.",
           variant: "destructive" as const,
-          icon: AlertCircle,
+          icon: AlertTriangle,
           actionText: "Update documents",
           showAction: true,
         }

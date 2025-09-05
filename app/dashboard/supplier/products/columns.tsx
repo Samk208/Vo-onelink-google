@@ -1,7 +1,7 @@
 'use client'
 
 import { ColumnDef } from '@tanstack/react-table'
-import { MoreHorizontal, ArrowUpDown } from 'lucide-react'
+import { MoreHorizontal, Package } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -12,111 +12,86 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Product } from '@/lib/types'
 import Link from 'next/link'
-import { ProductPageMeta } from './page'
 
 export const columns: ColumnDef<Product>[] = [
   {
-    accessorKey: 'title',
-    header: ({ column }) => {
+    accessorKey: "title",
+    header: "Product",
+    cell: ({ row }) => {
+      const product = row.original
       return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-        >
-          Title
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+            {product.images && product.images.length > 0 ? (
+              <img 
+                src={product.images[0]} 
+                alt={product.title}
+                className="w-10 h-10 rounded-lg object-cover"
+              />
+            ) : (
+              <Package className="h-5 w-5 text-gray-400" />
+            )}
+          </div>
+          <div>
+            <div className="font-medium">{product.title}</div>
+            <div className="text-sm text-gray-500">{product.sku}</div>
+          </div>
+        </div>
       )
     },
-    cell: ({ row }) => {
-        const product = row.original
-        return (
-            <div className="font-medium">{product.title}</div>
-        )
-    }
   },
   {
-    accessorKey: 'price',
-    header: () => <div className="text-right">Price</div>,
+    accessorKey: "category",
+    header: "Category",
+    cell: ({ row }) => (
+      <Badge variant="outline">{row.getValue("category")}</Badge>
+    ),
+  },
+  {
+    accessorKey: "price",
+    header: "Price",
     cell: ({ row }) => {
-      const price = parseFloat(row.getValue('price'))
-      const formatted = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
+      const price = parseFloat(row.getValue("price"))
+      const formatted = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
       }).format(price)
-
-      return <div className="text-right font-medium">{formatted}</div>
+      return <div className="font-medium">{formatted}</div>
     },
   },
   {
-    accessorKey: 'commission',
-    header: () => <div className="text-right">Commission %</div>,
+    accessorKey: "stock_count",
+    header: "Stock",
     cell: ({ row }) => {
-        const commission = parseFloat(row.getValue('commission'))
-        return <div className="text-right">{commission}%</div>
-    }
-  },
-  {
-    accessorKey: 'stockCount',
-    header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          >
-            Inventory
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        )
-      },
-    cell: ({ row }) => {
-        const stock = parseInt(row.getValue('stockCount'))
-        const inStock = row.original.inStock
-        return <div className={`text-center ${!inStock || stock <= 10 ? 'text-red-500' : ''}`}>{stock}</div>
-    }
-  },
-  {
-    accessorKey: 'region',
-    header: 'Regions',
-    cell: ({ row }) => {
-        const regions = row.getValue('region') as string[]
-        return (
-            <div className="flex flex-wrap gap-1">
-                {regions.map(region => (
-                    <Badge key={region} variant="secondary">{region}</Badge>
-                ))}
-            </div>
-        )
-    }
-  },
-  {
-    accessorKey: 'active',
-    header: 'Status',
-    cell: ({ row }) => {
-      const isActive = row.getValue('active')
-      return <Badge variant={isActive ? 'default' : 'outline'}>{isActive ? 'Active' : 'Inactive'}</Badge>
+      const stock = row.getValue("stock_count") as number
+      return (
+        <div className="flex items-center space-x-2">
+          <div className={`w-2 h-2 rounded-full ${stock > 0 ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span>{stock}</span>
+        </div>
+      )
     },
   },
   {
-    id: 'actions',
-    cell: ({ row, table }) => {
+    accessorKey: "active",
+    header: "Status",
+    cell: ({ row }) => {
+      const active = row.getValue("active") as boolean
+      return (
+        <Badge variant={active ? "default" : "secondary"}>
+          {active ? "Active" : "Inactive"}
+        </Badge>
+      )
+    },
+  },
+  {
+    id: "actions",
+    enableHiding: false,
+    cell: ({ row }) => {
       const product = row.original
-      const meta = table.options.meta as ProductPageMeta
-
       return (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -127,18 +102,15 @@ export const columns: ColumnDef<Product>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => onView(row.original)}>
-              View details
+            <DropdownMenuItem asChild>
+              <Link href={`/dashboard/supplier/products/${product.id}`}>View</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onEdit(row.original)}>
-              Edit product
+            <DropdownMenuItem asChild>
+              <Link href={`/dashboard/supplier/products/${product.id}/edit`}>Edit</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              onClick={() => onDelete(row.original)}
-              className="text-red-600"
-            >
-              Delete product
+            <DropdownMenuItem className="text-red-600">
+              Delete
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

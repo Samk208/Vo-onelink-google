@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { paginationSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type PaginatedResponse } from "@/lib/types"
@@ -17,7 +17,8 @@ interface AdminUser {
 // GET /api/admin/users - List all users (admin only)
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request)
+    const supabase = await createServerSupabaseClient()
+    const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.ADMIN])) {
       return NextResponse.json(
         { ok: false, message: "Unauthorized" },
@@ -39,8 +40,6 @@ export async function GET(request: NextRequest) {
     const roleFilter = searchParams.get('role')
     const verifiedFilter = searchParams.get('verified')
     const searchQuery = searchParams.get('search')
-
-    const supabase = createServerSupabaseClient()
 
     let query = supabase
       .from('users')

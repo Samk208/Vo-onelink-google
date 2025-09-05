@@ -1,17 +1,11 @@
 'use client'
 
-import { Plus, BarChart3, Package, Settings } from 'lucide-react'
+import { Plus, BarChart3, Package, Settings, DollarSign, TrendingUp, ShoppingCart, Users } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { useAuth } from '@/lib/auth-context'
-import { useRouter } from 'next/navigation'
-import { useToast } from '@/hooks/use-toast'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { Skeleton } from '@/components/ui/skeleton'
-import Link from 'next/link'
+import { useToast } from '@/hooks/use-toast'
 
 interface SupplierStats {
   totalProducts: number
@@ -67,6 +61,7 @@ export default function SupplierDashboard() {
   const [data, setData] = useState<SupplierDashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     fetchDashboardData()

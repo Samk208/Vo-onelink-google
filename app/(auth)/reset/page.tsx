@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Mail } from "lucide-react"
-import { createServerSupabaseClient } from "@/lib/supabase"
+import { createClientSupabaseClient } from "@/lib/supabase/client"
 import { toast } from "@/hooks/use-toast"
 
 const resetPasswordSchema = z.object({
@@ -64,7 +64,7 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [error, setError] = useState("")
-  const supabase = createServerSupabaseClient()
+  const supabase = createClientSupabaseClient()
 
   const form = useForm<ResetPasswordForm>({
     resolver: zodResolver(resetPasswordSchema),

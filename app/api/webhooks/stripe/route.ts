@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { headers } from "next/headers"
-import { supabaseAdmin } from "@/lib/supabase"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import type { ApiResponse } from "@/lib/types"
 
@@ -8,8 +7,7 @@ import type { ApiResponse } from "@/lib/types"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text()
-    const headersList = await headers()
-    const signature = headersList.get('stripe-signature')
+    const signature = request.headers.get('stripe-signature')
 
     if (!signature) {
       console.error('Missing Stripe signature')
@@ -102,7 +100,7 @@ async function handleCheckoutSessionCompleted(session: any) {
         stripe_payment_intent_id: session.payment_intent,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .select()
       .single()
 
@@ -111,7 +109,7 @@ async function handleCheckoutSessionCompleted(session: any) {
       return
     }
 
-    console.log('Order created successfully:', order.id)
+    console.log('Order created successfully:', (order as any)?.id)
 
     // Process each item for stock updates and commission logging
     for (const item of items) {
@@ -119,7 +117,7 @@ async function handleCheckoutSessionCompleted(session: any) {
       const { error: stockError } = await supabaseAdmin.rpc('decrement_stock', {
         product_id: item.productId,
         quantity: item.quantity
-      })
+      } as any)
 
       if (stockError) {
         console.error(`Failed to update stock for product ${item.productId}:`, stockError)
@@ -138,8 +136,8 @@ async function handleCheckoutSessionCompleted(session: any) {
       let actualSalePrice = item.price
 
       if (shopProduct) {
-        influencerId = shopProduct.influencer_id
-        actualSalePrice = shopProduct.sale_price || item.price
+        influencerId = (shopProduct as any).influencer_id
+        actualSalePrice = (shopProduct as any).sale_price || item.price
         console.log(`Product ${item.productId} purchased through influencer ${influencerId} shop`)
       }
 
@@ -152,7 +150,7 @@ async function handleCheckoutSessionCompleted(session: any) {
       const { error: supplierCommissionError } = await supabaseAdmin
         .from('commissions')
         .insert({
-          order_id: order.id,
+          order_id: (order as any)?.id,
           supplier_id: item.supplierId,
           product_id: item.productId,
           amount: supplierCommissionAmount,
@@ -176,7 +174,7 @@ async function handleCheckoutSessionCompleted(session: any) {
           const { error: influencerCommissionError } = await supabaseAdmin
             .from('commissions')
             .insert({
-              order_id: order.id,
+              order_id: (order as any)?.id,
               influencer_id: influencerId,
               supplier_id: item.supplierId,
               product_id: item.productId,

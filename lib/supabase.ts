@@ -1,36 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { NextRequest, NextResponse } from 'next/server'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-// Client-side Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-// Server-side Supabase client (for API routes) - handles async cookies
-export const createServerSupabaseClient = () => {
-  const { cookies } = require('next/headers')
-  return createRouteHandlerClient({ cookies })
-}
-
-// Service role client (for admin operations)
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-})
-
-// Middleware helper for auth
-export const createMiddlewareSupabaseClient = (req: NextRequest) => {
-  let res = NextResponse.next({ request: { headers: req.headers } })
-
-  return {
-    supabase: createRouteHandlerClient({
-      cookies: () => req.cookies as any
-    }),
-    response: res,
-  }
-}
+// Export all Supabase client types from one place
+export { createClientSupabaseClient, supabase } from './supabase/client'
+export { createServerSupabaseClient } from './supabase/server'
+export { supabaseAdmin } from './supabase/admin'
+export type { Database } from './supabase/types'
