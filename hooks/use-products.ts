@@ -145,15 +145,17 @@ export function useProduct(productId: string | null) {
         setError(null)
 
         // Simplified query without user join
-        const { data, error } = await supabase
+        const query = supabase
           .from('products')
           .select('*')
           .eq('id', productId)
           .eq('active', true)
-          .single()
+          .maybeSingle()
+        
+        const { data, error } = await query
 
         if (error) throw error
-        setProduct(data)
+        setProduct(data || null)
       } catch (err) {
         console.error('Error fetching product:', err)
         setError(err instanceof Error ? err.message : 'Failed to fetch product')
@@ -183,9 +185,11 @@ export function useCategories() {
 
         if (error) throw error
 
-        // Count categories
-        const categoryCount = data.reduce((acc: Record<string, number>, item) => {
-          acc[item.category] = (acc[item.category] || 0) + 1
+        // Count categories with proper type checking
+        const categoryCount = (data || []).reduce((acc: Record<string, number>, item: any) => {
+          if (item && item.category) {
+            acc[item.category] = (acc[item.category] || 0) + 1
+          }
           return acc
         }, {})
 

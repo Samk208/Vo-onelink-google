@@ -4,6 +4,7 @@ export const runtime = 'nodejs'
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
+import { type Inserts } from "@/lib/supabase/server"
 import * as z from "zod"
 
 const createCommissionSchema = z.z.object({
@@ -237,20 +238,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    type CommissionInsert = Inserts<'commissions'>
+    const insertData: CommissionInsert = {
+      order_id: validation.data.orderId,
+      influencer_id: validation.data.influencerId,
+      supplier_id: validation.data.supplierId,
+      product_id: validation.data.productId,
+      amount: validation.data.amount,
+      rate: validation.data.rate,
+      status: validation.data.status,
+      created_at: new Date().toISOString()
+    }
+    
     const { data: commission, error } = await supabase
       .from('commissions')
-      .insert({
-        order_id: validation.data.orderId,
-        influencer_id: validation.data.influencerId,
-        supplier_id: validation.data.supplierId,
-        product_id: validation.data.productId,
-        amount: validation.data.amount,
-        rate: validation.data.rate,
-        status: validation.data.status,
-        created_at: new Date().toISOString()
-      })
+      .insert(insertData)
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) {
       console.error('Commission creation error:', error)

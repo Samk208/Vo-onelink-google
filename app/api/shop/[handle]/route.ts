@@ -59,7 +59,7 @@ export async function GET(
       `)
       .eq('handle', handle)
       .eq('role', 'influencer')
-      .single()
+      .maybeSingle()
 
     if (influencerError || !influencer) {
       return NextResponse.json(

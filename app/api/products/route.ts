@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getCurrentUser, hasRole } from '@/lib/auth-helpers'
+import { UserRole, type ApiResponse } from '@/lib/types'
+import { QueryData } from '@supabase/supabase-js'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,10 +17,10 @@ export async function GET(request: NextRequest) {
 
     const offset = (page - 1) * limit
 
-    // Use admin client if needed, otherwise use regular server client
-    const supabase = adminAccess ? supabaseAdmin : createServerSupabaseClient(request)
-
-    // Build query
+    // Create base query with proper client selection
+    const supabase = adminAccess ? supabaseAdmin : await createServerSupabaseClient(request)
+    
+    // Build query with all base filters
     let query = supabase
       .from('products')
       .select(`
@@ -33,7 +36,7 @@ export async function GET(request: NextRequest) {
       .eq('in_stock', true)
       .order('created_at', { ascending: false })
 
-    // Apply filters
+    // Apply optional filters
     if (category) {
       query = query.eq('category', category)
     }
@@ -47,26 +50,34 @@ export async function GET(request: NextRequest) {
     // Apply pagination
     query = query.range(offset, offset + limit - 1)
 
+    // Execute query and get results
     const { data, error, count } = await query
 
+    // Handle errors with early return
     if (error) {
       console.error('Database error:', error)
       return NextResponse.json(
-        { error: 'Failed to fetch products' },
+        { error: 'Failed to fetch products', details: error.message },
         { status: 500 }
       )
     }
 
+    // Infer product type from query
+    type ProductWithSupplier = QueryData<typeof query>[number]
+
+    // Return successful response
     return NextResponse.json({
       products: data || [],
       totalCount: count || 0,
-      hasMore: data?.length === limit && (offset + limit) < (count || 0)
+      hasMore: data?.length === limit && (offset + limit) < (count || 0),
+      page,
+      limit
     })
 
   } catch (error) {
     console.error('API Route Error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     )
   }

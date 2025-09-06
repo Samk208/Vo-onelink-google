@@ -108,7 +108,7 @@ async function handleCheckoutSessionCompleted(session: any) {
       .from('orders')
       .insert(orderInsert)
       .select()
-      .single()
+      .maybeSingle()
 
     if (orderError) {
       console.error('Failed to create order:', orderError)
@@ -141,7 +141,7 @@ async function handleCheckoutSessionCompleted(session: any) {
         .select('influencer_id, sale_price, custom_title')
         .eq('product_id', item.productId)
         .eq('published', true)
-        .single()
+        .maybeSingle()
 
       let influencerId = null
       let actualSalePrice = item.price
@@ -220,7 +220,7 @@ async function handleCheckoutSessionCompleted(session: any) {
         .from('products')
         .select('stock_count')
         .eq('id', item.productId)
-        .single()
+        .maybeSingle()
 
       if (product && product.stock_count <= 0) {
         const { error: updateError } = await supabaseAdmin

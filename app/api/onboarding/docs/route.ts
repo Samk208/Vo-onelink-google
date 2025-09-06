@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       .select('*')
       .eq('user_id', user.id)
       .in('status', ['draft', 'submitted'])
-      .single()
+      .maybeSingle()
 
     let verificationRequestId: string
 
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
         .from('verification_requests')
         .insert(requestInsert)
         .select()
-        .single()
+        .maybeSingle()
 
       if (createError || !newRequest) {
         console.error('Error creating verification request:', createError)
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       .from('verification_documents')
       .insert(documentInsert)
       .select()
-      .single()
+      .maybeSingle()
 
     if (docError || !documentRecord) {
       // Clean up uploaded file on error
@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (!verificationRequest) {
       return NextResponse.json({

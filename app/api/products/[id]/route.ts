@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { updateProductSchema, uuidSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse, type Product } from "@/lib/types"
+import { QueryData } from '@supabase/supabase-js'
+import { type Updates } from "@/lib/supabase/server"
 
 // GET /api/products/[id] - Get single product
 export async function GET(
@@ -22,7 +24,7 @@ export async function GET(
     }
 
     const supabase = await createServerSupabaseClient()
-    const { data: product, error } = await supabase
+    const query = supabase
       .from('products')
       .select(`
         *,
@@ -33,7 +35,10 @@ export async function GET(
         )
       `)
       .eq('id', productId)
-      .single()
+      .maybeSingle()
+    
+    type ProductRow = QueryData<typeof query>
+    const { data: product, error } = await query
 
     if (error || !product) {
       return NextResponse.json(
@@ -91,11 +96,14 @@ export async function PUT(
     }
 
     // Check if product exists and user has permission
-    const { data: existingProduct, error: fetchError } = await supabase
+    const existingQuery = supabase
       .from('products')
       .select('*')
       .eq('id', productId)
-      .single()
+      .maybeSingle()
+    
+    type ExistingProductRow = QueryData<typeof existingQuery>
+    const { data: existingProduct, error: fetchError } = await existingQuery
 
     if (fetchError || !existingProduct) {
       return NextResponse.json(
@@ -130,13 +138,16 @@ export async function PUT(
 
     // Check for duplicate SKU if SKU is being updated
     if (updateData.sku && updateData.sku !== existingProduct.sku) {
-      const { data: duplicateProduct } = await supabase
+      const duplicateQuery = supabase
         .from('products')
         .select('id')
         .eq('supplier_id', existingProduct.supplier_id)
         .eq('sku', updateData.sku)
         .neq('id', productId)
-        .single()
+        .maybeSingle()
+      
+      type DuplicateProductRow = QueryData<typeof duplicateQuery>
+      const { data: duplicateProduct } = await duplicateQuery
 
       if (duplicateProduct) {
         return NextResponse.json(
@@ -178,9 +189,12 @@ export async function PUT(
       finalUpdateData.sku = updateData.sku
     }
 
-    const { data: product, error } = await supabase
+    type ProductUpdate = Updates<'products'>
+    const updateData: ProductUpdate = finalUpdateData
+    
+    const updateQuery = supabase
       .from('products')
-      .update(finalUpdateData)
+      .update(updateData)
       .eq('id', productId)
       .select(`
         *,
@@ -190,9 +204,12 @@ export async function PUT(
           email
         )
       `)
-      .single()
+      .maybeSingle()
+    
+    type UpdatedProductRow = QueryData<typeof updateQuery>
+    const { data: product, error } = await updateQuery
 
-    if (error) {
+    if (error || !product) {
       console.error('Product update error:', error)
       return NextResponse.json(
         { ok: false, error: "Failed to update product" },
@@ -252,11 +269,14 @@ export async function DELETE(
     }
 
     // Check if product exists and user has permission
-    const { data: existingProduct, error: fetchError } = await supabase
+    const deleteQuery = supabase
       .from('products')
       .select('supplier_id')
       .eq('id', productId)
-      .single()
+      .maybeSingle()
+    
+    type DeleteProductRow = QueryData<typeof deleteQuery>
+    const { data: existingProduct, error: fetchError } = await deleteQuery
 
     if (fetchError || !existingProduct) {
       return NextResponse.json(

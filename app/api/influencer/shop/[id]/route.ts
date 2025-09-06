@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
 import { z } from "zod"
+import { QueryData } from '@supabase/supabase-js'
 
 const updateShopProductSchema = z.object({
   customTitle: z.string().optional(),
@@ -43,11 +44,14 @@ export async function PUT(
     }
 
     // Check if shop product exists and belongs to user
-    const { data: existing, error: fetchError } = await supabase
+    const query = supabase
       .from('influencer_shop_products')
       .select('id, influencer_id')
       .eq('id', id)
-      .single()
+      .maybeSingle()
+    
+    type ShopProductRow = QueryData<typeof query>
+    const { data: existing, error: fetchError } = await query
 
     if (fetchError || !existing) {
       return NextResponse.json(
@@ -69,14 +73,17 @@ export async function PUT(
       updated_at: new Date().toISOString()
     }
 
-    const { data: updated, error: updateError } = await supabase
+    const updateQuery = supabase
       .from('influencer_shop_products')
       .update(updateData)
       .eq('id', id)
       .select()
-      .single()
+      .maybeSingle()
+    
+    type UpdatedShopProductRow = QueryData<typeof updateQuery>
+    const { data: updated, error: updateError } = await updateQuery
 
-    if (updateError) {
+    if (updateError || !updated) {
       console.error('Shop product update error:', updateError)
       return NextResponse.json(
         { ok: false, error: "Failed to update shop product" },
@@ -117,11 +124,14 @@ export async function DELETE(
     }
 
     // Check if shop product exists and belongs to user
-    const { data: existing, error: fetchError } = await supabase
+    const deleteQuery = supabase
       .from('influencer_shop_products')
       .select('id, influencer_id')
       .eq('id', id)
-      .single()
+      .maybeSingle()
+    
+    type DeleteShopProductRow = QueryData<typeof deleteQuery>
+    const { data: existing, error: fetchError } = await deleteQuery
 
     if (fetchError || !existing) {
       return NextResponse.json(

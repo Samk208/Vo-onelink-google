@@ -3,6 +3,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { verificationReviewSchema, uuidSchema } from "@/lib/validators"
 import { UserRole, type OnboardingApiResponse, type VerificationRequest } from "@/lib/types"
+import { QueryData } from '@supabase/supabase-js'
+import { type Updates } from "@/lib/supabase/server"
 
 export async function POST(
   request: NextRequest,
@@ -67,13 +69,16 @@ export async function POST(
     }
 
     // Get verification request to check it exists and is in correct state
-    const { data: verificationRequest, error: fetchError } = await supabase
+    const query = supabase
       .from('verification_requests')
       .select('*')
       .eq('id', requestId)
-      .single()
+      .maybeSingle()
+    
+    type VerificationRequestRow = QueryData<typeof query>
+    const { data: verificationRequest, error: fetchError } = await query
 
-    if (fetchError) {
+    if (fetchError || !verificationRequest) {
       console.error('Verification request fetch error:', fetchError)
       return NextResponse.json(
         { ok: false, error: "Verification request not found" },
@@ -94,20 +99,26 @@ export async function POST(
     }
 
     // Update verification request
-    const { data: updatedRequest, error: updateError } = await supabase
+    type VerificationRequestUpdate = Updates<'verification_requests'>
+    const updateData: VerificationRequestUpdate = {
+      status,
+      rejection_reason: status === 'rejected' ? rejection_reason : null,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: user.id,
+      updated_at: new Date().toISOString(),
+    }
+    
+    const updateQuery = supabase
       .from('verification_requests')
-      .update({
-        status,
-        rejection_reason: status === 'rejected' ? rejection_reason : null,
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: user.id,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', requestId)
       .select()
-      .single()
+      .maybeSingle()
+    
+    type UpdatedVerificationRequestRow = QueryData<typeof updateQuery>
+    const { data: updatedRequest, error: updateError } = await updateQuery
 
-    if (updateError) {
+    if (updateError || !updatedRequest) {
       console.error('Verification request update error:', updateError)
       return NextResponse.json(
         { ok: false, error: "Failed to update verification request" },
@@ -115,20 +126,23 @@ export async function POST(
       )
     }
 
-    // If verified, update user profile role
+    // If verified, update user role
     if (status === 'verified') {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          role: verificationRequest.role,
-          updated_at: new Date().toISOString(),
-        })
+      type UserUpdate = Updates<'users'>
+      const userUpdateData: UserUpdate = {
+        role: verificationRequest.role,
+        updated_at: new Date().toISOString(),
+      }
+      
+      const { error: userError } = await supabase
+        .from('users')
+        .update(userUpdateData)
         .eq('id', verificationRequest.user_id)
 
-      if (profileError) {
-        console.error('Profile update error:', profileError)
+      if (userError) {
+        console.error('User update error:', userError)
         // Don't fail the request, but log the error
-        console.warn(`Failed to update profile role for user ${verificationRequest.user_id}`)
+        console.warn(`Failed to update user role for user ${verificationRequest.user_id}`)
       }
     }
 

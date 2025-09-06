@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole } from "@/lib/types"
+import { type Inserts } from "@/lib/supabase/server"
 import { z } from "zod"
 
 const addProductSchema = z.object({
@@ -225,7 +226,7 @@ export async function POST(request: NextRequest) {
       .select('id, title, price, commission')
       .eq('id', productId)
       .eq('active', true)
-      .single()
+      .maybeSingle()
 
     if (productError || !product) {
       return NextResponse.json(
@@ -240,7 +241,7 @@ export async function POST(request: NextRequest) {
       .select('id')
       .eq('influencer_id', user.id)
       .eq('product_id', productId)
-      .single()
+      .maybeSingle()
 
     if (existing) {
       return NextResponse.json(
@@ -250,30 +251,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Get next display order
-    const { data: lastOrder } = await supabase
-      .from('influencer_shop_products')
-      .select('display_order')
-      .eq('influencer_id', user.id)
-      .order('display_order', { ascending: false })
-      .limit(1)
-      .single()
+    // Note: display_order field doesn't exist in current schema
+    // const { data: lastOrder } = await supabase
+    //   .from('influencer_shop_products')
+    //   .select('display_order')
+    //   .eq('influencer_id', user.id)
+    //   .order('display_order', { ascending: false })
+    //   .limit(1)
+    //   .maybeSingle()
 
-    const nextOrder = (lastOrder?.display_order || 0) + 1
+    // Note: display_order field doesn't exist in current schema
 
     // Add to shop
+    type ShopProductInsert = Inserts<'influencer_shop_products'>
+    const insertData: ShopProductInsert = {
+      influencer_id: user.id,
+      product_id: productId,
+      custom_title: customTitle,
+      sale_price: salePrice || product.price,
+      published: true
+    }
+    
     const { data: shopProduct, error: insertError } = await supabase
       .from('influencer_shop_products')
-      .insert({
-        influencer_id: user.id,
-        product_id: productId,
-        custom_title: customTitle,
-        custom_description: customDescription,
-        sale_price: salePrice || product.price,
-        published: true,
-        display_order: nextOrder
-      })
+      .insert(insertData)
       .select()
-      .single()
+      .maybeSingle()
 
     if (insertError) {
       console.error('Shop product insert error:', insertError)
