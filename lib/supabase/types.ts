@@ -130,6 +130,76 @@ export interface Database {
           updated_at?: string
         }
       }
+      commissions: {
+        Row: {
+          id: string
+          order_id: string
+          influencer_id?: string
+          supplier_id: string
+          product_id: string
+          amount: number
+          rate: number
+          status: string
+          created_at: string
+          paid_at?: string
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          influencer_id?: string
+          supplier_id: string
+          product_id: string
+          amount: number
+          rate: number
+          status?: string
+          created_at?: string
+          paid_at?: string
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          influencer_id?: string
+          supplier_id?: string
+          product_id?: string
+          amount?: number
+          rate?: number
+          status?: string
+          created_at?: string
+          paid_at?: string
+        }
+      }
+      influencer_shop_products: {
+        Row: {
+          id: string
+          influencer_id: string
+          product_id: string
+          sale_price?: number
+          custom_title?: string
+          published: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          influencer_id: string
+          product_id: string
+          sale_price?: number
+          custom_title?: string
+          published?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          influencer_id?: string
+          product_id?: string
+          sale_price?: number
+          custom_title?: string
+          published?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
       shops: {
         Row: {
           id: string

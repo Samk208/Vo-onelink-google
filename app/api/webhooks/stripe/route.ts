@@ -1,7 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import { supabaseAdmin, type Inserts, type Tables } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import type { ApiResponse } from "@/lib/types"
+
+// Force Node.js runtime to avoid Edge runtime issues with Supabase
+export const runtime = 'nodejs'
 
 // POST /api/webhooks/stripe - Handle Stripe webhook events
 export async function POST(request: NextRequest) {
@@ -86,21 +89,24 @@ async function handleCheckoutSessionCompleted(session: any) {
     const parsedOrderData = JSON.parse(orderData)
     const { items, total, shippingAddress, billingAddress } = parsedOrderData
 
+    // Create order insert data with proper typing
+    const orderInsert: Inserts<'orders'> = {
+      customer_id: userId,
+      items: items,
+      total: total,
+      status: 'confirmed',
+      shipping_address: shippingAddress,
+      billing_address: billingAddress,
+      payment_method: 'stripe',
+      stripe_payment_intent_id: session.payment_intent,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
     // Create order in database
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
-      .insert({
-        customer_id: userId,
-        items: items,
-        total: total,
-        status: 'confirmed',
-        shipping_address: shippingAddress,
-        billing_address: billingAddress,
-        payment_method: 'stripe',
-        stripe_payment_intent_id: session.payment_intent,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as any)
+      .insert(orderInsert)
       .select()
       .single()
 
@@ -109,7 +115,12 @@ async function handleCheckoutSessionCompleted(session: any) {
       return
     }
 
-    console.log('Order created successfully:', (order as any)?.id)
+    if (!order) {
+      console.error('No order data returned after creation')
+      return
+    }
+
+    console.log('Order created successfully:', order.id)
 
     // Process each item for stock updates and commission logging
     for (const item of items) {
@@ -117,7 +128,7 @@ async function handleCheckoutSessionCompleted(session: any) {
       const { error: stockError } = await supabaseAdmin.rpc('decrement_stock', {
         product_id: item.productId,
         quantity: item.quantity
-      } as any)
+      })
 
       if (stockError) {
         console.error(`Failed to update stock for product ${item.productId}:`, stockError)
@@ -136,8 +147,8 @@ async function handleCheckoutSessionCompleted(session: any) {
       let actualSalePrice = item.price
 
       if (shopProduct) {
-        influencerId = (shopProduct as any).influencer_id
-        actualSalePrice = (shopProduct as any).sale_price || item.price
+        influencerId = shopProduct.influencer_id
+        actualSalePrice = shopProduct.sale_price || item.price
         console.log(`Product ${item.productId} purchased through influencer ${influencerId} shop`)
       }
 
@@ -146,18 +157,20 @@ async function handleCheckoutSessionCompleted(session: any) {
       const supplierCommissionAmount = (itemRevenue * item.commission) / 100
       const supplierNetRevenue = itemRevenue - supplierCommissionAmount
 
-      // Create supplier commission record
+      // Create supplier commission record with proper typing
+      const supplierCommission: Inserts<'commissions'> = {
+        order_id: order.id,
+        supplier_id: item.supplierId,
+        product_id: item.productId,
+        amount: supplierCommissionAmount,
+        rate: item.commission,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      }
+
       const { error: supplierCommissionError } = await supabaseAdmin
         .from('commissions')
-        .insert({
-          order_id: (order as any)?.id,
-          supplier_id: item.supplierId,
-          product_id: item.productId,
-          amount: supplierCommissionAmount,
-          rate: item.commission,
-          status: 'pending',
-          created_at: new Date().toISOString(),
-        })
+        .insert(supplierCommission)
 
       if (supplierCommissionError) {
         console.error(`Failed to create supplier commission for product ${item.productId}:`, supplierCommissionError)
@@ -171,18 +184,20 @@ async function handleCheckoutSessionCompleted(session: any) {
         const influencerCommissionAmount = (actualSalePrice - item.price) * item.quantity
         
         if (influencerCommissionAmount > 0) {
+          const influencerCommission: Inserts<'commissions'> = {
+            order_id: order.id,
+            influencer_id: influencerId,
+            supplier_id: item.supplierId,
+            product_id: item.productId,
+            amount: influencerCommissionAmount,
+            rate: ((actualSalePrice - item.price) / item.price) * 100, // Calculate effective rate
+            status: 'pending',
+            created_at: new Date().toISOString(),
+          }
+
           const { error: influencerCommissionError } = await supabaseAdmin
             .from('commissions')
-            .insert({
-              order_id: (order as any)?.id,
-              influencer_id: influencerId,
-              supplier_id: item.supplierId,
-              product_id: item.productId,
-              amount: influencerCommissionAmount,
-              rate: ((actualSalePrice - item.price) / item.price) * 100, // Calculate effective rate
-              status: 'pending',
-              created_at: new Date().toISOString(),
-            })
+            .insert(influencerCommission)
 
           if (influencerCommissionError) {
             console.error(`Failed to create influencer commission for product ${item.productId}:`, influencerCommissionError)
@@ -208,13 +223,17 @@ async function handleCheckoutSessionCompleted(session: any) {
         .single()
 
       if (product && product.stock_count <= 0) {
-        await supabaseAdmin
+        const { error: updateError } = await supabaseAdmin
           .from('products')
           .update({ 
             in_stock: false,
             updated_at: new Date().toISOString()
           })
           .eq('id', item.productId)
+        
+        if (updateError) {
+          console.error(`Failed to update in_stock status for product ${item.productId}:`, updateError)
+        }
       }
     }
 

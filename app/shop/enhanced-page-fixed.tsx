@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useProducts } from "@/hooks/use-products"
-import { useCartStore } from "@/lib/store/cart"
+import { useCartStore, type CartItem } from "@/lib/store/cart"
 import { ProductCard } from "@/components/shop/product-card"
 import { EnhancedProductCard } from "@/components/shop/enhanced-product-card"
 import { ProductFilters, type ProductFilters as ProductFiltersType } from "@/components/shop/product-filters"
@@ -178,14 +178,18 @@ export default function EnhancedShopPage() {
   
   // Add to cart function
   const addToCart = (product: any) => {
-    const cartItem = {
+    const cartItem: Omit<CartItem, 'quantity'> & { quantity?: number } = {
       id: product.id,
-      name: product.title,
+      title: product.title,  // Fixed: was 'name', should be 'title'
       price: product.price,
-      quantity: 1,
+      originalPrice: product.original_price,
       image: product.images?.[0] || '/placeholder.svg',
       category: product.category,
-      supplier: product.supplier
+      supplierId: product.supplier_id || '',
+      supplierName: product.supplier?.name || 'Unknown Supplier',
+      supplierVerified: product.supplier?.verified || false,
+      maxQuantity: product.stock_count || 10,
+      quantity: 1
     }
     
     addItem(cartItem)
@@ -518,6 +522,7 @@ export default function EnhancedShopPage() {
         product={quickViewProduct}
         isOpen={isQuickViewOpen}
         onClose={closeQuickView}
+        onAddToCart={addToCart}
       />
     </div>
   )

@@ -1,11 +1,12 @@
 import { createServerSupabaseClient } from './supabase/server'
-import { supabaseAdmin } from './supabase'
+import { supabaseAdmin, type Inserts, type Updates } from './supabase/admin'
 import { UserRole, type User, type AuthResponse } from './types'
 import { NextRequest } from 'next/server'
 import { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from './supabase/database.types'
 
 // Get current user from supabase client
-export async function getCurrentUser(supabase: SupabaseClient): Promise<User | null> {
+export async function getCurrentUser(supabase: SupabaseClient<Database>): Promise<User | null> {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session?.user) return null
@@ -16,7 +17,19 @@ export async function getCurrentUser(supabase: SupabaseClient): Promise<User | n
       .eq('id', session.user.id)
       .single()
 
-    return user
+    if (!user) return null
+
+    // Transform database user to User type
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role as UserRole,
+      avatar: user.avatar || undefined,
+      verified: user.verified || false,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at
+    }
   } catch (error) {
     console.error('Error getting current user:', error)
     return null
@@ -39,18 +52,21 @@ export async function createUserProfile(
   try {
     console.log('Creating user profile with:', { userId, email, name, role })
     
+    // Create the insert object with proper typing
+    const insertData: Inserts<'users'> = {
+      id: userId,
+      email,
+      name,
+      role,
+      verified: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    
     // Use supabaseAdmin to bypass RLS for user creation
     const { data: user, error } = await supabaseAdmin
       .from('users')
-      .insert({
-        id: userId, // Explicitly set the ID to match the auth user ID
-        email,
-        name,
-        role,
-        verified: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .insert(insertData)
       .select()
       .single()
 
@@ -59,8 +75,21 @@ export async function createUserProfile(
       return null
     }
 
+    if (!user) return null
+
     console.log('User profile created successfully:', user)
-    return user
+    
+    // Transform to User type
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role as UserRole,
+      avatar: user.avatar || undefined,
+      verified: user.verified || false,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at
+    }
   } catch (error) {
     console.error('Unexpected error creating user profile:', error)
     return null
@@ -73,12 +102,17 @@ export async function updateUserProfile(
   updates: Partial<Pick<User, 'name' | 'avatar' | 'verified'>>
 ): Promise<User | null> {
   try {
+    // Create the update object with proper typing
+    const updateData: Updates<'users'> = {
+      ...(updates.name && { name: updates.name }),
+      ...(updates.avatar !== undefined && { avatar: updates.avatar || null }),
+      ...(updates.verified !== undefined && { verified: updates.verified }),
+      updated_at: new Date().toISOString(),
+    }
+
     const { data: user, error } = await supabaseAdmin
       .from('users')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', userId)
       .select()
       .single()
@@ -88,7 +122,19 @@ export async function updateUserProfile(
       return null
     }
 
-    return user
+    if (!user) return null
+
+    // Transform to User type
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role as UserRole,
+      avatar: user.avatar || undefined,
+      verified: user.verified || false,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at
+    }
   } catch (error) {
     console.error('Error updating user profile:', error)
     return null
@@ -138,7 +184,23 @@ export async function getUserByEmail(email: string): Promise<{ data: User | null
       return { data: null, error }
     }
 
-    return { data: user, error: null }
+    if (!user) {
+      return { data: null, error: null }
+    }
+
+    // Transform to User type
+    const transformedUser: User = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role as UserRole,
+      avatar: user.avatar || undefined,
+      verified: user.verified || false,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at
+    }
+
+    return { data: transformedUser, error: null }
   } catch (error) {
     return { data: null, error }
   }
