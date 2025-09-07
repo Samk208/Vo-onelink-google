@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { ensureTypedClient } from "@/lib/supabase/types"
 import { updateOrderStatusSchema, uuidSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse, type Order } from "@/lib/types"
@@ -13,7 +14,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     const user = await getCurrentUser(supabase)
     if (!user) {
       return NextResponse.json(
@@ -76,7 +77,7 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.ADMIN])) {
       return NextResponse.json(

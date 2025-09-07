@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { ensureTypedClient, type TypedSupabaseClient } from "@/lib/supabase/types"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
 import { type Inserts } from "@/lib/supabase/server"
@@ -35,7 +36,7 @@ const productImportSchema = z.object({
 // POST /api/products/import - Import products from CSV (suppliers/admins only)
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase: TypedSupabaseClient = ensureTypedClient(await createServerSupabaseClient())
     const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.SUPPLIER, UserRole.ADMIN])) {
       return NextResponse.json(
@@ -139,16 +140,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               productData.category = stringValue
               break
             case 'stock_quantity':
-              productData.stock = parseInt(stringValue)
+              productData.stock_count = parseInt(stringValue)
               break
             case 'regions':
-              productData.regions = stringValue ? stringValue.split(',').map((r: string) => r.trim()) : []
+              productData.region = stringValue ? stringValue.split(',').map((r: string) => r.trim()) : []
               break
           }
         }
 
         // Validate required fields
-        const validation = productImportSchema.safeParse(productData)
+        const validation = productImportSchema.safeParse({
+          title: productData.title,
+          description: productData.description,
+          images: productData.images || [],
+          price: productData.price,
+          regions: productData.region || [],
+          stock: productData.stock_count ?? 0,
+        })
         if (!validation.success) {
           result.failed++
           validation.error.errors.forEach(err => {
@@ -165,11 +173,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         // If not dry run, insert the product
         if (!dryRun) {
           type ProductInsert = Inserts<'products'>
-          const insertData: ProductInsert = productData
+          const insertData: ProductInsert = {
+            supplier_id: productData.supplier_id,
+            title: productData.title,
+            description: productData.description ?? "",
+            images: productData.images || [],
+            price: productData.price,
+            category: productData.category ?? "general",
+            region: productData.region || [],
+            stock_count: productData.stock_count ?? 0,
+            in_stock: (productData.stock_count ?? 0) > 0,
+            commission: 0, // Default; adjust if provided in CSV
+            active: true,
+            created_at: productData.created_at,
+            updated_at: productData.updated_at,
+            sku: productData.sku,
+            original_price: productData.original_price ?? null,
+          }
           
           const { data: insertedProduct, error: insertError } = await supabase
             .from('products')
-            .insert([insertData])
+            .insert(insertData)
             .select()
             .maybeSingle()
 

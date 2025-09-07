@@ -41,7 +41,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ok: true,
       data: null,
       message: "Brand information submitted successfully"
-    } as OnboardingApiResponse<BrandDetails>)
+    } as OnboardingApiResponse<BrandDetails | null>)
   } catch (error) {
     console.error('Brand details error:', error)
     return NextResponse.json(

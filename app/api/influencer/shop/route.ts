@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { ensureTypedClient } from "@/lib/supabase/types"
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole } from "@/lib/types"
@@ -8,6 +9,7 @@ import { z } from "zod"
 const addProductSchema = z.object({
   productId: z.string().uuid(),
   customTitle: z.string().optional(),
+  // customDescription not in typed schema for influencer_shop_products
   customDescription: z.string().optional(),
   salePrice: z.number().min(0).optional()
 })
@@ -18,7 +20,6 @@ export interface InfluencerShopData {
     productId: string
     title: string
     customTitle?: string
-    customDescription?: string
     basePrice: number
     salePrice: number
     commission: number
@@ -48,7 +49,7 @@ export interface InfluencerShopData {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     
     // Get current user and check permissions
     const user = await getCurrentUser(supabase)
@@ -79,10 +80,8 @@ export async function GET(request: NextRequest) {
         id,
         product_id,
         custom_title,
-        custom_description,
         sale_price,
         published,
-        display_order,
         products (
           id,
           title,
@@ -92,14 +91,11 @@ export async function GET(request: NextRequest) {
           category,
           region,
           stock_count,
-          in_stock,
-          profiles!products_supplier_id_fkey (
-            name
-          )
+          in_stock
         )
       `)
       .eq('influencer_id', user.id)
-      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: true })
 
     if (shopError) {
       console.error('Shop products fetch error:', shopError)
@@ -121,10 +117,7 @@ export async function GET(request: NextRequest) {
         category,
         region,
         stock_count,
-        in_stock,
-        profiles!products_supplier_id_fkey (
-          name
-        )
+        in_stock
       `)
       .eq('active', true)
       .eq('in_stock', true)
@@ -157,7 +150,6 @@ export async function GET(request: NextRequest) {
       productId: item.product_id,
       title: item.products.title,
       customTitle: item.custom_title,
-      customDescription: item.custom_description,
       basePrice: item.products.price,
       salePrice: item.sale_price,
       commission: item.products.commission,
@@ -165,11 +157,11 @@ export async function GET(request: NextRequest) {
       image: item.products.images?.[0] || '/placeholder-product.png',
       category: item.products.category,
       region: item.products.region,
-      supplier: item.products.profiles?.name || 'Unknown Supplier',
+      supplier: 'Unknown Supplier',
       inStock: item.products.in_stock,
       stockCount: item.products.stock_count,
       published: item.published,
-      order: item.display_order
+      order: 0
     })) || []
 
     // Format available products (exclude already added ones)
@@ -184,7 +176,7 @@ export async function GET(request: NextRequest) {
         image: product.images?.[0] || '/placeholder-product.png',
         category: product.category,
         region: product.region,
-        supplier: product.profiles?.name || 'Unknown Supplier',
+        supplier: 'Unknown Supplier',
         inStock: product.in_stock,
         stockCount: product.stock_count
       })) || []
@@ -207,7 +199,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     
     const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.INFLUENCER])) {
@@ -249,18 +241,6 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       )
     }
-
-    // Get next display order
-    // Note: display_order field doesn't exist in current schema
-    // const { data: lastOrder } = await supabase
-    //   .from('influencer_shop_products')
-    //   .select('display_order')
-    //   .eq('influencer_id', user.id)
-    //   .order('display_order', { ascending: false })
-    //   .limit(1)
-    //   .maybeSingle()
-
-    // Note: display_order field doesn't exist in current schema
 
     // Add to shop
     type ShopProductInsert = Inserts<'influencer_shop_products'>

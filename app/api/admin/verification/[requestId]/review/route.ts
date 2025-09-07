@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { ensureTypedClient } from "@/lib/supabase/types"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { verificationReviewSchema, uuidSchema } from "@/lib/validators"
 import { UserRole, type OnboardingApiResponse, type VerificationRequest } from "@/lib/types"
@@ -12,7 +13,7 @@ export async function POST(
 ) {
   try {
     const { requestId } = await params
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     
     // Get current user and check admin permissions
     const user = await getCurrentUser(supabase)
@@ -145,13 +146,6 @@ export async function POST(
         console.warn(`Failed to update user role for user ${verificationRequest.user_id}`)
       }
     }
-
-    // TODO: In production, send notification to user about review result
-    // This could be:
-    // - Send email notification
-    // - Create in-app notification
-    // - Send webhook event
-    // - Update user dashboard status
 
     console.log(`Verification request ${requestId} ${status} by admin ${user.id}`)
 

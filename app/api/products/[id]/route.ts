@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { ensureTypedClient } from "@/lib/supabase/types"
 import { updateProductSchema, uuidSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse, type Product } from "@/lib/types"
@@ -12,8 +13,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
-    const resolvedParams = await params
-    const productId = resolvedParams.id
+    const { id: productId } = await params
 
     const validation = uuidSchema.safeParse(productId)
     if (!validation.success) {
@@ -23,7 +23,7 @@ export async function GET(
       )
     }
 
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     const query = supabase
       .from('products')
       .select(`
@@ -66,10 +66,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
-    const resolvedParams = await params
-    const productId = resolvedParams.id
+    const { id: productId } = await params
 
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     
     // Get current user and check permissions
     const user = await getCurrentUser(supabase)
@@ -134,15 +133,15 @@ export async function PUT(
       )
     }
 
-    const updateData = updateValidation.data
+    const validatedUpdate = updateValidation.data
 
     // Check for duplicate SKU if SKU is being updated
-    if (updateData.sku && updateData.sku !== existingProduct.sku) {
+    if (validatedUpdate.sku && validatedUpdate.sku !== existingProduct.sku) {
       const duplicateQuery = supabase
         .from('products')
         .select('id')
         .eq('supplier_id', existingProduct.supplier_id)
-        .eq('sku', updateData.sku)
+        .eq('sku', validatedUpdate.sku)
         .neq('id', productId)
         .maybeSingle()
       
@@ -163,38 +162,38 @@ export async function PUT(
 
     // Calculate final price if commission is updated
     const finalUpdateData: any = {
-      ...updateData,
+      ...validatedUpdate,
       updated_at: new Date().toISOString(),
     }
 
     // Map validation schema fields to database fields
-    if (updateData.stockCount !== undefined) {
-      finalUpdateData.stock_count = updateData.stockCount
-      finalUpdateData.in_stock = updateData.stockCount > 0
+    if (validatedUpdate.stockCount !== undefined) {
+      finalUpdateData.stock_count = validatedUpdate.stockCount
+      finalUpdateData.in_stock = validatedUpdate.stockCount > 0
     }
     
-    if (updateData.region !== undefined) {
-      finalUpdateData.region = updateData.region
+    if (validatedUpdate.region !== undefined) {
+      finalUpdateData.region = validatedUpdate.region
     }
     
-    if (updateData.images !== undefined) {
-      finalUpdateData.images = updateData.images
+    if (validatedUpdate.images !== undefined) {
+      finalUpdateData.images = validatedUpdate.images
     }
     
-    if (updateData.originalPrice !== undefined) {
-      finalUpdateData.original_price = updateData.originalPrice
+    if (validatedUpdate.originalPrice !== undefined) {
+      finalUpdateData.original_price = validatedUpdate.originalPrice
     }
     
-    if (updateData.sku !== undefined) {
-      finalUpdateData.sku = updateData.sku
+    if (validatedUpdate.sku !== undefined) {
+      finalUpdateData.sku = validatedUpdate.sku
     }
 
     type ProductUpdate = Updates<'products'>
-    const updateData: ProductUpdate = finalUpdateData
+    const productUpdate: ProductUpdate = finalUpdateData
     
     const updateQuery = supabase
       .from('products')
-      .update(updateData)
+      .update(productUpdate)
       .eq('id', productId)
       .select(`
         *,
@@ -239,10 +238,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
-    const resolvedParams = await params
-    const productId = resolvedParams.id
+    const { id: productId } = await params
 
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     
     // Get current user and check permissions
     const user = await getCurrentUser(supabase)

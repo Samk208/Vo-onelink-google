@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { ensureTypedClient } from '@/lib/supabase/types'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getCurrentUser, hasRole } from '@/lib/auth-helpers'
 import { UserRole, type ApiResponse } from '@/lib/types'
@@ -18,7 +19,8 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit
 
     // Create base query with proper client selection
-    const supabase = adminAccess ? supabaseAdmin : await createServerSupabaseClient(request)
+    const baseClient = adminAccess ? supabaseAdmin : await createServerSupabaseClient(request)
+    const supabase = ensureTypedClient(baseClient)
     
     // Build query with all base filters
     let query = supabase

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { ensureTypedClient } from "@/lib/supabase/types"
 import { verifyUserSchema, uuidSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
@@ -21,7 +22,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.ADMIN])) {
       return NextResponse.json(

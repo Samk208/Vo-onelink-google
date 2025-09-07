@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 export const runtime = 'nodejs'
 
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { ensureTypedClient } from "@/lib/supabase/types"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
 import { type Inserts } from "@/lib/supabase/server"
@@ -58,7 +59,7 @@ export interface CommissionData {
 // GET /api/commissions - List commissions with filters
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     
     const user = await getCurrentUser(supabase)
     if (!user) {
@@ -214,7 +215,7 @@ export async function GET(request: NextRequest) {
 // POST /api/commissions - Create commission transaction
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     
     const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.ADMIN])) {
@@ -264,7 +265,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`💰 [AUDIT] Admin ${user.id} created commission ${commission.id}`)
+    if (commission) {
+      console.log(`💰 [AUDIT] Admin ${user.id} created commission ${commission.id}`)
+    }
 
     return NextResponse.json({
       ok: true,
