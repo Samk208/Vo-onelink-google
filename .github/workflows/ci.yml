@@ -63,7 +63,15 @@ jobs:
           TOKEN_TRIMMED=$(printf "%s" "$SUPABASE_ACCESS_TOKEN" | tr -d '\r' | awk '{$1=$1};1')
           echo "Debug: token length after trim: ${#TOKEN_TRIMMED}"
           echo "Debug: project ref set=${SUPABASE_PROJECT_ID:+yes}"
+          if [ ${#TOKEN_TRIMMED} -lt 60 ]; then
+            echo "::warning title=Suspicious token length::Personal Access Tokens are typically much longer than ${#TOKEN_TRIMMED} characters. If this fails, regenerate from Account → Access Tokens and paste the full value."
+          fi
+          supabase --version
           supabase login --token "$TOKEN_TRIMMED"
+          # Use the logged-in token from Supabase CLI config; avoid env override
+          unset SUPABASE_ACCESS_TOKEN
+          # Link the project explicitly to ensure CLI uses correct context
+          supabase link --project-ref "$SUPABASE_PROJECT_ID" --debug || true
           supabase gen types typescript --project-id "$SUPABASE_PROJECT_ID" > supabase.types.generated.ts
           if ! diff -u lib/supabase/database.types.ts supabase.types.generated.ts; then
             echo "::error title=Supabase types drift detected::Run 'supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > lib/supabase/database.types.ts' and commit."
