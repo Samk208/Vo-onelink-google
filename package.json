@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "start": "next start",
     "e2e": "playwright test",
+    "test:e2e": "pnpm e2e",
     "verify": "pnpm lint && pnpm typecheck && pnpm build && pnpm e2e"
   },
   "dependencies": {
