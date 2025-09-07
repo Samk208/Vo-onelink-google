@@ -10,7 +10,7 @@ import * as z from "zod"
 
 const createCommissionSchema = z.z.object({
   orderId: z.z.string().uuid(),
-  influencerId: z.z.string().uuid().optional(),
+  influencerId: z.z.string().uuid(),
   supplierId: z.z.string().uuid(),
   productId: z.z.string().uuid(),
   amount: z.z.number().min(0),

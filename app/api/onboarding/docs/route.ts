@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
       storage_path: storagePath,
       mime_type: file.type,
       size_bytes: file.size,
+      original_filename: file.name,
       status: 'pending',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

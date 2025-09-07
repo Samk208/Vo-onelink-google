@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, Page } from '@playwright/test'
 import { generateSamplePdf } from './helpers/test-data'
 
 test.describe.configure({ mode: 'serial' })
@@ -22,7 +22,7 @@ test('Shop page displays products and images/placeholders', async ({ page }) => 
   }
 })
 
-async function performSignUp(page, role: 'influencer' | 'brand') {
+async function performSignUp(page: Page, role: 'influencer' | 'brand') {
   const ts = Date.now()
   const email = `e2e.${role}.${ts}@test.local`
   const password = 'Password123!'

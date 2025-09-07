@@ -4,7 +4,6 @@ import { ensureTypedClient } from "@/lib/supabase/types"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
 import { z } from "zod"
-import { QueryData } from '@supabase/supabase-js'
 
 const updateShopProductSchema = z.object({
   customTitle: z.string().optional(),
@@ -44,59 +43,71 @@ export async function PUT(
       )
     }
 
-    // Check if shop product exists and belongs to user
-    const query = supabase
-      .from('influencer_shop_products')
-      .select('id, influencer_id')
-      .eq('id', id)
-      .maybeSingle()
-    
-    type ShopProductRow = QueryData<typeof query>
-    const { data: existing, error: fetchError } = await query
+    // Treat params.id as productId within the influencer's shop context
+    const productId = id
 
-    if (fetchError || !existing) {
+    // Fetch current shop products
+    const { data: shop, error: shopError } = await supabase
+      .from('shops')
+      .select('products')
+      .eq('influencer_id', user.id)
+      .maybeSingle()
+
+    if (shopError) {
+      console.error('Shop fetch error:', shopError)
       return NextResponse.json(
-        { ok: false, error: "Shop product not found" },
+        { ok: false, error: "Failed to fetch shop" },
+        { status: 500 }
+      )
+    }
+
+    if (!shop?.products || !Array.isArray(shop.products)) {
+      return NextResponse.json(
+        { ok: false, error: "Shop has no products to update" },
         { status: 404 }
       )
     }
 
-    if (existing.influencer_id !== user.id) {
-      return NextResponse.json(
-        { ok: false, error: "You can only edit your own shop products" },
-        { status: 403 }
+    let newProducts: any[] = [...shop.products]
+    if (typeof newProducts[0] === 'string') {
+      // No per-product overrides available; nothing to update
+      return NextResponse.json({
+        ok: true,
+        data: null,
+        message: "No-op: shop stores products as string[]; no overrides to update"
+      })
+    } else {
+      // JSON objects array
+      newProducts = newProducts.map((p: any) =>
+        p.product_id === productId
+          ? {
+              ...p,
+              ...(validation.data.customTitle !== undefined && { custom_title: validation.data.customTitle }),
+              ...(validation.data.salePrice !== undefined && { sale_price: validation.data.salePrice }),
+              ...(validation.data.published !== undefined && { published: validation.data.published }),
+            }
+          : p
       )
     }
 
-    // Update shop product
-    const updateData = {
-      ...validation.data,
-      updated_at: new Date().toISOString()
-    }
+    const { error: updateError } = await supabase
+      .from('shops')
+      .update({ products: newProducts, updated_at: new Date().toISOString() })
+      .eq('influencer_id', user.id)
 
-    const updateQuery = supabase
-      .from('influencer_shop_products')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .maybeSingle()
-    
-    type UpdatedShopProductRow = QueryData<typeof updateQuery>
-    const { data: updated, error: updateError } = await updateQuery
-
-    if (updateError || !updated) {
-      console.error('Shop product update error:', updateError)
+    if (updateError) {
+      console.error('Shop products update error:', updateError)
       return NextResponse.json(
         { ok: false, error: "Failed to update shop product" },
         { status: 500 }
       )
     }
 
-    console.log(`🛍️ [AUDIT] Influencer ${user.id} updated shop product ${id}`)
+    console.log(`🛍️ [AUDIT] Influencer ${user.id} updated shop product ${productId}`)
 
     return NextResponse.json({
       ok: true,
-      data: updated,
+      data: { product_id: productId },
       message: "Shop product updated successfully"
     })
   } catch (error) {
@@ -124,45 +135,52 @@ export async function DELETE(
       )
     }
 
-    // Check if shop product exists and belongs to user
-    const deleteQuery = supabase
-      .from('influencer_shop_products')
-      .select('id, influencer_id')
-      .eq('id', id)
-      .maybeSingle()
-    
-    type DeleteShopProductRow = QueryData<typeof deleteQuery>
-    const { data: existing, error: fetchError } = await deleteQuery
+    const productId = id
 
-    if (fetchError || !existing) {
+    const { data: shop, error: shopError } = await supabase
+      .from('shops')
+      .select('products')
+      .eq('influencer_id', user.id)
+      .maybeSingle()
+
+    if (shopError) {
+      console.error('Shop fetch error:', shopError)
       return NextResponse.json(
-        { ok: false, error: "Shop product not found" },
+        { ok: false, error: "Failed to fetch shop" },
+        { status: 500 }
+      )
+    }
+
+    if (!shop?.products || !Array.isArray(shop.products)) {
+      return NextResponse.json(
+        { ok: false, error: "Shop has no products" },
         { status: 404 }
       )
     }
 
-    if (existing.influencer_id !== user.id) {
-      return NextResponse.json(
-        { ok: false, error: "You can only delete your own shop products" },
-        { status: 403 }
-      )
+    let newProducts: any[]
+    if (typeof shop.products[0] === 'string') {
+      const ids = shop.products as string[]
+      newProducts = ids.filter(p => p !== productId)
+    } else {
+      const arr = shop.products as Array<any>
+      newProducts = arr.filter(p => p.product_id !== productId)
     }
 
-    // Delete shop product
-    const { error: deleteError } = await supabase
-      .from('influencer_shop_products')
-      .delete()
-      .eq('id', id)
+    const { error: updateError } = await supabase
+      .from('shops')
+      .update({ products: newProducts, updated_at: new Date().toISOString() })
+      .eq('influencer_id', user.id)
 
-    if (deleteError) {
-      console.error('Shop product delete error:', deleteError)
+    if (updateError) {
+      console.error('Shop product delete error:', updateError)
       return NextResponse.json(
         { ok: false, error: "Failed to delete shop product" },
         { status: 500 }
       )
     }
 
-    console.log(`🛍️ [AUDIT] Influencer ${user.id} removed product from shop ${id}`)
+    console.log(`🛍️ [AUDIT] Influencer ${user.id} removed product from shop ${productId}`)
 
     return NextResponse.json({
       ok: true,

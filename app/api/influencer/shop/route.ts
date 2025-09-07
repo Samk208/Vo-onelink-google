@@ -3,7 +3,6 @@ import { ensureTypedClient } from "@/lib/supabase/types"
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole } from "@/lib/types"
-import { type Inserts } from "@/lib/supabase/server"
 import { z } from "zod"
 
 const addProductSchema = z.object({
@@ -73,34 +72,17 @@ export async function GET(request: NextRequest) {
     const supplier = searchParams.get('supplier')
     const search = searchParams.get('search')
 
-    // Get influencer's shop products
-    const { data: shopProducts, error: shopError } = await supabase
-      .from('influencer_shop_products')
-      .select(`
-        id,
-        product_id,
-        custom_title,
-        sale_price,
-        published,
-        products (
-          id,
-          title,
-          price,
-          commission,
-          images,
-          category,
-          region,
-          stock_count,
-          in_stock
-        )
-      `)
+    // Fetch current influencer's shop and its products array (string[] of product IDs or objects)
+    const { data: shop, error: shopFetchError } = await supabase
+      .from('shops')
+      .select('*')
       .eq('influencer_id', user.id)
-      .order('created_at', { ascending: true })
+      .maybeSingle()
 
-    if (shopError) {
-      console.error('Shop products fetch error:', shopError)
+    if (shopFetchError) {
+      console.error('Shop fetch error:', shopFetchError)
       return NextResponse.json(
-        { ok: false, error: "Failed to fetch shop products" },
+        { ok: false, error: "Failed to fetch shop" },
         { status: 500 }
       )
     }
@@ -144,25 +126,64 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Format shop products
-    const formattedShopProducts = shopProducts?.map((item: any) => ({
-      id: item.id,
-      productId: item.product_id,
-      title: item.products.title,
-      customTitle: item.custom_title,
-      basePrice: item.products.price,
-      salePrice: item.sale_price,
-      commission: item.products.commission,
-      expectedCommission: (item.sale_price * item.products.commission) / 100,
-      image: item.products.images?.[0] || '/placeholder-product.png',
-      category: item.products.category,
-      region: item.products.region,
-      supplier: 'Unknown Supplier',
-      inStock: item.products.in_stock,
-      stockCount: item.products.stock_count,
-      published: item.published,
-      order: 0
-    })) || []
+    // Resolve products in the shop: supports either string[] of ids or JSON array of objects
+    let shopProductIds: string[] = []
+    let overridesById: Record<string, { custom_title?: string; sale_price?: number; published?: boolean }> = {}
+
+    if (shop?.products && Array.isArray(shop.products)) {
+      if (typeof shop.products[0] === 'string') {
+        shopProductIds = shop.products as string[]
+      } else {
+        // Assume shape: [{ product_id, custom_title?, sale_price?, published? }]
+        const arr = shop.products as Array<any>
+        shopProductIds = arr.map(p => p.product_id)
+        for (const p of arr) {
+          overridesById[p.product_id] = {
+            custom_title: p.custom_title,
+            sale_price: p.sale_price,
+            published: p.published,
+          }
+        }
+      }
+    }
+
+    let detailedShopProducts: any[] = []
+    if (shopProductIds.length > 0) {
+      const { data: productsInShop, error: productsInShopError } = await supabase
+        .from('products')
+        .select(`id, title, price, commission, images, category, region, stock_count, in_stock`)
+        .in('id', shopProductIds)
+
+      if (productsInShopError) {
+        console.error('Products in shop fetch error:', productsInShopError)
+      } else {
+        detailedShopProducts = productsInShop || []
+      }
+    }
+
+    const formattedShopProducts = detailedShopProducts.map((prod: any) => {
+      const ov = overridesById[prod.id] || {}
+      const salePrice = ov.sale_price ?? prod.price
+      const published = ov.published ?? true
+      return {
+        id: prod.id,
+        productId: prod.id,
+        title: prod.title,
+        customTitle: ov.custom_title,
+        basePrice: prod.price,
+        salePrice,
+        commission: prod.commission,
+        expectedCommission: (salePrice * prod.commission) / 100,
+        image: prod.images?.[0] || '/placeholder-product.png',
+        category: prod.category,
+        region: prod.region,
+        supplier: 'Unknown Supplier',
+        inStock: prod.in_stock,
+        stockCount: prod.stock_count,
+        published,
+        order: 0,
+      }
+    })
 
     // Format available products (exclude already added ones)
     const addedProductIds = new Set(formattedShopProducts.map(p => p.productId))
@@ -227,39 +248,50 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if already in shop
-    const { data: existing } = await supabase
-      .from('influencer_shop_products')
-      .select('id')
+    // Fetch current shop products
+    const { data: shop } = await supabase
+      .from('shops')
+      .select('products')
       .eq('influencer_id', user.id)
-      .eq('product_id', productId)
       .maybeSingle()
 
-    if (existing) {
-      return NextResponse.json(
-        { ok: false, error: "Product already in your shop" },
-        { status: 409 }
-      )
+    let newProducts: any[] = []
+    if (shop?.products && Array.isArray(shop.products)) {
+      if (typeof shop.products[0] === 'string') {
+        const ids = shop.products as string[]
+        if (ids.includes(productId)) {
+          return NextResponse.json(
+            { ok: false, error: "Product already in your shop" },
+            { status: 409 }
+          )
+        }
+        newProducts = [...ids, productId]
+      } else {
+        // JSON objects array
+        const arr = shop.products as Array<any>
+        if (arr.some(p => p.product_id === productId)) {
+          return NextResponse.json(
+            { ok: false, error: "Product already in your shop" },
+            { status: 409 }
+          )
+        }
+        newProducts = [
+          ...arr,
+          { product_id: productId, custom_title: customTitle, sale_price: salePrice ?? product.price, published: true }
+        ]
+      }
+    } else {
+      // No products yet
+      newProducts = [productId]
     }
 
-    // Add to shop
-    type ShopProductInsert = Inserts<'influencer_shop_products'>
-    const insertData: ShopProductInsert = {
-      influencer_id: user.id,
-      product_id: productId,
-      custom_title: customTitle,
-      sale_price: salePrice || product.price,
-      published: true
-    }
-    
-    const { data: shopProduct, error: insertError } = await supabase
-      .from('influencer_shop_products')
-      .insert(insertData)
-      .select()
-      .maybeSingle()
+    const { error: updateError } = await supabase
+      .from('shops')
+      .update({ products: newProducts, updated_at: new Date().toISOString() })
+      .eq('influencer_id', user.id)
 
-    if (insertError) {
-      console.error('Shop product insert error:', insertError)
+    if (updateError) {
+      console.error('Shop products update error:', updateError)
       return NextResponse.json(
         { ok: false, error: "Failed to add product to shop" },
         { status: 500 }
@@ -270,7 +302,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      data: shopProduct,
+      data: { product_id: productId },
       message: "Product added to your shop successfully"
     })
   } catch (error) {

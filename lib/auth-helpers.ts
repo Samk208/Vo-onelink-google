@@ -25,13 +25,13 @@ export async function getCurrentUser(supabase: TypedSupabaseClient): Promise<Use
     // Transform database user to User type
     return {
       id: user.id,
-      email: user.email,
-      name: user.name,
+      email: user.email ?? '',
+      name: user.name ?? '',
       role: user.role as UserRole,
       avatar: user.avatar || undefined,
       verified: user.verified || false,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at
+      createdAt: user.created_at ?? new Date().toISOString(),
+      updatedAt: user.updated_at ?? new Date().toISOString()
     }
   } catch (error) {
     console.error('Error getting current user:', error)
@@ -85,13 +85,13 @@ export async function createUserProfile(
     // Transform to User type
     return {
       id: user.id,
-      email: user.email,
-      name: user.name,
+      email: user.email ?? '',
+      name: user.name ?? '',
       role: user.role as UserRole,
       avatar: user.avatar || undefined,
       verified: user.verified || false,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at
+      createdAt: user.created_at ?? new Date().toISOString(),
+      updatedAt: user.updated_at ?? new Date().toISOString()
     }
   } catch (error) {
     console.error('Unexpected error creating user profile:', error)
@@ -130,13 +130,13 @@ export async function updateUserProfile(
     // Transform to User type
     return {
       id: user.id,
-      email: user.email,
-      name: user.name,
+      email: user.email ?? '',
+      name: user.name ?? '',
       role: user.role as UserRole,
       avatar: user.avatar || undefined,
       verified: user.verified || false,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at
+      createdAt: user.created_at ?? new Date().toISOString(),
+      updatedAt: user.updated_at ?? new Date().toISOString()
     }
   } catch (error) {
     console.error('Error updating user profile:', error)
@@ -197,13 +197,13 @@ export async function getUserByEmail(email: string): Promise<{ data: User | null
     // Transform to User type
     const transformedUser: User = {
       id: user.id,
-      email: user.email,
-      name: user.name,
+      email: user.email ?? '',
+      name: user.name ?? '',
       role: user.role as UserRole,
       avatar: user.avatar || undefined,
       verified: user.verified || false,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at
+      createdAt: user.created_at ?? new Date().toISOString(),
+      updatedAt: user.updated_at ?? new Date().toISOString()
     }
 
     return { data: transformedUser, error: null }
