@@ -58,6 +58,12 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
+          # Extra safety: trim potential CRLF/whitespace from the token and login explicitly
+          echo "Debug: token length before trim: ${#SUPABASE_ACCESS_TOKEN}"
+          TOKEN_TRIMMED=$(printf "%s" "$SUPABASE_ACCESS_TOKEN" | tr -d '\r' | awk '{$1=$1};1')
+          echo "Debug: token length after trim: ${#TOKEN_TRIMMED}"
+          echo "Debug: project ref set=${SUPABASE_PROJECT_ID:+yes}"
+          supabase login --token "$TOKEN_TRIMMED"
           supabase gen types typescript --project-id "$SUPABASE_PROJECT_ID" > supabase.types.generated.ts
           if ! diff -u lib/supabase/database.types.ts supabase.types.generated.ts; then
             echo "::error title=Supabase types drift detected::Run 'supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > lib/supabase/database.types.ts' and commit."
