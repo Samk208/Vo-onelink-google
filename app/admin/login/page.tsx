@@ -9,10 +9,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { UserRole } from '@/lib/types'
 
 interface AdminLoginProps {
-  searchParams: { error?: string }
+  searchParams: Promise<{ error?: string }>
 }
 
-export default function AdminLogin({ searchParams }: AdminLoginProps) {
+export default async function AdminLogin({ searchParams }: AdminLoginProps) {
+  const params = await searchParams
   async function signIn(formData: FormData) {
     'use server'
     
@@ -81,7 +82,7 @@ export default function AdminLogin({ searchParams }: AdminLoginProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {searchParams.error && (
+            {params.error && (
               <Alert variant="destructive" role="alert">
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path
@@ -91,7 +92,7 @@ export default function AdminLogin({ searchParams }: AdminLoginProps) {
                     d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.85-1.83-1.51-2.95-1.42-.15-1.15.41-2.35 1.05-3.11z"
                   />
                 </svg>
-                <AlertDescription>{searchParams.error}</AlertDescription>
+                <AlertDescription>{params.error}</AlertDescription>
               </Alert>
             )}
 
