@@ -46,6 +46,7 @@ export function EnhancedProductCard({
 
   return (
     <Card 
+      data-testid="product-card"
       className={cn(
         "group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1",
         sizeClasses[size]

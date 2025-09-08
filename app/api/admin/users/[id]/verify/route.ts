@@ -1,8 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { ensureTypedClient } from "@/lib/supabase/types"
 import { verifyUserSchema, uuidSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
+import { type Updates } from "@/lib/supabase/server"
+
+// Declare runtime for Node.js-specific operations
+export const runtime = 'nodejs'
 
 interface VerifyUserResult {
   userId: string
@@ -17,7 +22,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.ADMIN])) {
       return NextResponse.json(
@@ -52,12 +57,14 @@ export async function PUT(
 
     const { verified, notes } = verifyValidation.data
 
-    // Check if user exists
-    const { data: targetUser, error: fetchError } = await supabase
+    // Check if user exists with proper type inference
+    const fetchQuery = supabase
       .from('users')
       .select('id, email, name, role')
       .eq('id', id)
-      .single()
+      .maybeSingle()
+    
+    const { data: targetUser, error: fetchError } = await fetchQuery
 
     if (fetchError || !targetUser) {
       return NextResponse.json(
@@ -66,18 +73,23 @@ export async function PUT(
       )
     }
 
-    // Update user verification status
+    // Update user verification status with proper type inference
+    type UserUpdate = Updates<'users'>
+    const updateData: UserUpdate = {
+      verified,
+      updated_at: new Date().toISOString(),
+    }
+    
     const { data: updatedUser, error: updateError } = await supabase
       .from('users')
-      .update({
-        verified,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', id)
       .select('id, verified, updated_at')
-      .single()
+      .maybeSingle()
+    
 
-    if (updateError) {
+
+    if (updateError || !updatedUser) {
       console.error('User verification error:', updateError)
       return NextResponse.json(
         { ok: false, message: "Failed to update user verification" },

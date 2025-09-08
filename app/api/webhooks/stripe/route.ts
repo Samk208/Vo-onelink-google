@@ -1,7 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabaseAdmin } from "@/lib/supabase/admin"
+import { supabaseAdmin, type Inserts, type Tables } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import type { ApiResponse } from "@/lib/types"
+
+// Force Node.js runtime to avoid Edge runtime issues with Supabase
+export const runtime = 'nodejs'
 
 // POST /api/webhooks/stripe - Handle Stripe webhook events
 export async function POST(request: NextRequest) {
@@ -86,78 +89,100 @@ async function handleCheckoutSessionCompleted(session: any) {
     const parsedOrderData = JSON.parse(orderData)
     const { items, total, shippingAddress, billingAddress } = parsedOrderData
 
+    // Create order insert data with proper typing
+    const orderInsert: Inserts<'orders'> = {
+      customer_id: userId,
+      items: items,
+      total: total,
+      status: 'confirmed',
+      shipping_address: shippingAddress,
+      billing_address: billingAddress,
+      payment_method: 'stripe',
+      stripe_payment_intent_id: session.payment_intent,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
     // Create order in database
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
-      .insert({
-        customer_id: userId,
-        items: items,
-        total: total,
-        status: 'confirmed',
-        shipping_address: shippingAddress,
-        billing_address: billingAddress,
-        payment_method: 'stripe',
-        stripe_payment_intent_id: session.payment_intent,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as any)
+      .insert(orderInsert)
       .select()
-      .single()
+      .maybeSingle()
 
     if (orderError) {
       console.error('Failed to create order:', orderError)
       return
     }
 
-    console.log('Order created successfully:', (order as any)?.id)
+    if (!order) {
+      console.error('No order data returned after creation')
+      return
+    }
+
+    console.log('Order created successfully:', order.id)
+
+    // Extract influencer metadata if present
+    const metadataInfluencerId: string | undefined = (session as any).metadata?.influencer_id || undefined
+    const metadataCustomPrices: Record<string, number> | undefined = (() => {
+      try {
+        const raw = (session as any).metadata?.custom_prices
+        return raw ? JSON.parse(raw) : undefined
+      } catch {
+        return undefined
+      }
+    })()
 
     // Process each item for stock updates and commission logging
     for (const item of items) {
-      // Update stock count
-      const { error: stockError } = await supabaseAdmin.rpc('decrement_stock', {
-        product_id: item.productId,
-        quantity: item.quantity
-      } as any)
+      // Update stock count directly on products table
+      const { data: product } = await supabaseAdmin
+        .from('products')
+        .select('stock_count')
+        .eq('id', item.productId)
+        .maybeSingle()
 
-      if (stockError) {
-        console.error(`Failed to update stock for product ${item.productId}:`, stockError)
-        // Continue processing other items even if one fails
+      if (product) {
+        const currentStock = product.stock_count ?? 0
+        const newStock = Math.max(0, currentStock - (item.quantity ?? 0))
+        const { error: stockUpdateError } = await supabaseAdmin
+          .from('products')
+          .update({ 
+            stock_count: newStock,
+            in_stock: newStock > 0,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', item.productId)
+
+        if (stockUpdateError) {
+          console.error(`Failed to update stock for product ${item.productId}:`, stockUpdateError)
+        }
       }
 
-      // Check if product was purchased through an influencer shop
-      const { data: shopProduct } = await supabaseAdmin
-        .from('influencer_shop_products')
-        .select('influencer_id, sale_price, custom_title')
-        .eq('product_id', item.productId)
-        .eq('published', true)
-        .single()
-
-      let influencerId = null
-      let actualSalePrice = item.price
-
-      if (shopProduct) {
-        influencerId = (shopProduct as any).influencer_id
-        actualSalePrice = (shopProduct as any).sale_price || item.price
-        console.log(`Product ${item.productId} purchased through influencer ${influencerId} shop`)
-      }
+      // Determine influencer attribution and effective sale price from metadata
+      const influencerId: string | null = metadataInfluencerId ?? null
+      const effectiveSalePrice = metadataCustomPrices?.[item.productId] ?? item.price
 
       // Calculate commissions
-      const itemRevenue = actualSalePrice * item.quantity
+      const itemRevenue = effectiveSalePrice * item.quantity
       const supplierCommissionAmount = (itemRevenue * item.commission) / 100
       const supplierNetRevenue = itemRevenue - supplierCommissionAmount
 
-      // Create supplier commission record
+      // Create supplier commission record with proper typing
+      const supplierCommission: Inserts<'commissions'> = {
+        order_id: order.id,
+        influencer_id: influencerId ?? order.customer_id,
+        supplier_id: item.supplierId,
+        product_id: item.productId,
+        amount: supplierCommissionAmount,
+        rate: item.commission,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+      }
+
       const { error: supplierCommissionError } = await supabaseAdmin
         .from('commissions')
-        .insert({
-          order_id: (order as any)?.id,
-          supplier_id: item.supplierId,
-          product_id: item.productId,
-          amount: supplierCommissionAmount,
-          rate: item.commission,
-          status: 'pending',
-          created_at: new Date().toISOString(),
-        })
+        .insert(supplierCommission)
 
       if (supplierCommissionError) {
         console.error(`Failed to create supplier commission for product ${item.productId}:`, supplierCommissionError)
@@ -168,21 +193,23 @@ async function handleCheckoutSessionCompleted(session: any) {
       // Create influencer commission record if purchased through influencer shop
       if (influencerId) {
         // Influencer gets the difference between sale price and base price
-        const influencerCommissionAmount = (actualSalePrice - item.price) * item.quantity
+        const influencerCommissionAmount = (effectiveSalePrice - item.price) * item.quantity
         
         if (influencerCommissionAmount > 0) {
+          const influencerCommission: Inserts<'commissions'> = {
+            order_id: order.id,
+            influencer_id: influencerId,
+            supplier_id: item.supplierId,
+            product_id: item.productId,
+            amount: influencerCommissionAmount,
+            rate: ((effectiveSalePrice - item.price) / item.price) * 100, // Calculate effective rate
+            status: 'pending',
+            created_at: new Date().toISOString(),
+          }
+
           const { error: influencerCommissionError } = await supabaseAdmin
             .from('commissions')
-            .insert({
-              order_id: (order as any)?.id,
-              influencer_id: influencerId,
-              supplier_id: item.supplierId,
-              product_id: item.productId,
-              amount: influencerCommissionAmount,
-              rate: ((actualSalePrice - item.price) / item.price) * 100, // Calculate effective rate
-              status: 'pending',
-              created_at: new Date().toISOString(),
-            })
+            .insert(influencerCommission)
 
           if (influencerCommissionError) {
             console.error(`Failed to create influencer commission for product ${item.productId}:`, influencerCommissionError)
@@ -195,27 +222,8 @@ async function handleCheckoutSessionCompleted(session: any) {
       console.log(`📊 Commission breakdown for product ${item.productId}:
         - Item Revenue: $${itemRevenue}
         - Supplier Net: $${supplierNetRevenue}
-        - Supplier Commission: $${supplierCommissionAmount} (${item.commission}%)
-        ${influencerId ? `- Influencer Commission: $${(actualSalePrice - item.price) * item.quantity}` : '- No influencer involved'}`)
-    }
-
-    // Update products in_stock status based on new stock counts
-    for (const item of items) {
-      const { data: product } = await supabaseAdmin
-        .from('products')
-        .select('stock_count')
-        .eq('id', item.productId)
-        .single()
-
-      if (product && product.stock_count <= 0) {
-        await supabaseAdmin
-          .from('products')
-          .update({ 
-            in_stock: false,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', item.productId)
-      }
+        - Supplier Commission: $${supplierCommissionAmount} (${item.commission}%) for product ${item.productId}
+        ${influencerId ? `- Influencer Commission: $${(effectiveSalePrice - item.price) * item.quantity}` : '- No influencer involved'}`)
     }
 
     console.log('Checkout session processing completed for order:', order.id)

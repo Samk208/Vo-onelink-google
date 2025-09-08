@@ -1,20 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser } from "@/lib/auth-helpers"
-import { type OnboardingApiResponse, type VerificationDocument } from "@/lib/types"
 import { z } from 'zod'
-import { generateSecureUploadUrl, validateFileUpload } from '@/lib/storage'
+import { supabaseAdmin, type Inserts } from "@/lib/supabase/admin"
 
+// Force Node.js runtime
+export const runtime = 'nodejs'
+
+// Schema for FormData document upload
 const documentUploadSchema = z.object({
-  document_type: z.enum(['identity_card', 'passport', 'business_license', 'tax_certificate']),
-  file_name: z.string().min(1, 'File name is required'),
-  file_size: z.number().positive('File size must be positive'),
-  mime_type: z.string().min(1, 'MIME type is required')
+  documentType: z.string().min(1, 'Document type is required'),
+})
+
+// File validation schema
+const fileValidationSchema = z.object({
+  size: z.number().max(10 * 1024 * 1024, 'File size must be less than 10MB'),
+  type: z.string().regex(/^(image\/.*|application\/pdf)$/, 'Only images and PDFs are allowed')
 })
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = createServerSupabaseClient(request)
     
     // Get current user
     const user = await getCurrentUser(supabase)
@@ -25,184 +31,237 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user's email is verified before allowing document submission
-    const { data: emailVerification, error: verificationError } = await supabase
-      .from('email_verifications')
-      .select('verified')
-      .eq('user_id', user.id)
-      .eq('verified', true)
-      .single()
+    // Parse FormData
+    const formData = await request.formData()
+    const file = formData.get('file') as File
+    const documentType = formData.get('documentType') as string
 
-    if (verificationError || !emailVerification) {
+    if (!file) {
       return NextResponse.json(
-        { 
-          ok: false, 
-          error: "Email verification required before document submission",
-          requiresEmailVerification: true
-        },
-        { status: 403 }
+        { ok: false, error: "File is required" },
+        { status: 400 }
       )
     }
 
-    const body = await request.json()
-    const { documents } = body // Array of document upload requests
-    
-    if (!Array.isArray(documents) || documents.length === 0) {
+    // Validate document type
+    const typeValidation = documentUploadSchema.safeParse({ documentType })
+    if (!typeValidation.success) {
       return NextResponse.json(
         { 
           ok: false, 
-          error: "Documents array is required",
-          fieldErrors: { documents: ["At least one document is required"] }
+          error: "Invalid document type",
+          fieldErrors: typeValidation.error.flatten().fieldErrors 
         },
         { status: 400 }
       )
     }
 
-    // Validate each document
-    const validatedDocuments = []
-    for (let i = 0; i < documents.length; i++) {
-      const validation = documentUploadSchema.safeParse(documents[i])
-      if (!validation.success) {
-        return NextResponse.json(
-          { 
-            ok: false, 
-            error: `Invalid document data at index ${i}`,
-            fieldErrors: validation.error.flatten().fieldErrors 
-          },
-          { status: 400 }
-        )
-      }
-      validatedDocuments.push(validation.data)
-    }
+    // Validate file
+    const fileValidation = fileValidationSchema.safeParse({
+      size: file.size,
+      type: file.type
+    })
 
-    // Get or create verification request
-    let verificationRequest
-    const { data: existingRequest, error: requestError } = await supabase
-      .from('verification_requests')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('status', 'draft')
-      .single()
-
-    if (requestError && requestError.code !== 'PGRST116') {
-      console.error('Error fetching verification request:', requestError)
+    if (!fileValidation.success) {
       return NextResponse.json(
-        { ok: false, error: "Failed to fetch verification request" },
-        { status: 500 }
+        { 
+          ok: false, 
+          error: "Invalid file",
+          fieldErrors: fileValidation.error.flatten().fieldErrors 
+        },
+        { status: 400 }
       )
     }
 
+    // Get or create verification request
+    const { data: existingRequest } = await supabaseAdmin
+      .from('verification_requests')
+      .select('*')
+      .eq('user_id', user.id)
+      .in('status', ['draft', 'submitted'])
+      .maybeSingle()
+
+    let verificationRequestId: string
+
     if (existingRequest) {
-      verificationRequest = existingRequest
+      verificationRequestId = existingRequest.id
     } else {
       // Create new verification request
-      const { data: newRequest, error: createError } = await supabase
-        .from('verification_requests')
-        .insert({
-          user_id: user.id,
-          role: 'influencer', // Default role, can be updated later
-          status: 'draft',
-        })
-        .select()
-        .single()
+      const requestInsert: Inserts<'verification_requests'> = {
+        user_id: user.id,
+        role: user.role.toLowerCase(),
+        status: 'draft',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
 
-      if (createError) {
+      const { data: newRequest, error: createError } = await supabaseAdmin
+        .from('verification_requests')
+        .insert(requestInsert)
+        .select()
+        .maybeSingle()
+
+      if (createError || !newRequest) {
         console.error('Error creating verification request:', createError)
         return NextResponse.json(
           { ok: false, error: "Failed to create verification request" },
           { status: 500 }
         )
       }
-      verificationRequest = newRequest
+      verificationRequestId = newRequest.id
     }
 
-    // Create document records and generate pre-signed URLs
-    const documentResults = []
-    
-    for (const doc of validatedDocuments) {
-      // Validate file metadata before generating upload URL
-      try {
-        validateFileUpload({ name: doc.file_name, size: doc.file_size, type: doc.mime_type } as File, 'verificationDocument');
-      } catch (e: any) {
-        return NextResponse.json(
-          { 
-            ok: false, 
-            error: e.message
-          },
-          { status: 400 }
-        )
-      }
+    // Convert file to buffer
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
 
-      // Get file extension
-      const fileExtension = doc.file_name.toLowerCase().substring(doc.file_name.lastIndexOf('.') + 1)
+    // Generate unique filename
+    const timestamp = Date.now()
+    const filename = `${user.id}/${documentType}_${timestamp}_${file.name}`
+    const storagePath = `verification-documents/${filename}`
 
-      // Generate secure upload URL with short TTL
-      let uploadData
-      try {
-        uploadData = await generateSecureUploadUrl(supabase, 'documents', `kyc/${user.id}/${crypto.randomUUID()}-${doc.file_name}`)
-      } catch (uploadError: any) {
-        return NextResponse.json(
-          { 
-            ok: false, 
-            error: uploadError.message
-          },
-          { status: 500 }
-        )
-      }
-
-      const documentId = crypto.randomUUID()
-      const storagePath = uploadData.path
-      
-      // Create document record
-      const { data: documentRecord, error: docError } = await supabase
-        .from('verification_documents')
-        .insert({
-          id: documentId,
-          request_id: verificationRequest.id,
-          doc_type: doc.document_type,
-          storage_path: storagePath,
-          mime_type: doc.mime_type,
-          size_bytes: doc.file_size,
-          status: 'pending',
-        })
-        .select()
-        .single()
-
-      if (docError) {
-        console.error('Error creating document record:', docError)
-        return NextResponse.json(
-          { 
-            ok: false, 
-            error: "Failed to create document record"
-          },
-          { status: 500 }
-        )
-      }
-
-      documentResults.push({
-        id: documentId,
-        doc_type: doc.document_type,
-        upload_url: uploadData.signedUrl, // The URL to use for the PUT request to upload the file
-        storage_path: storagePath,
-        expires_in: 900, // 15 minutes
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabaseAdmin
+      .storage
+      .from('documents')
+      .upload(storagePath, buffer, {
+        contentType: file.type,
+        cacheControl: '3600',
+        upsert: false
       })
+
+    if (uploadError) {
+      console.error('Storage upload error:', uploadError)
+      return NextResponse.json(
+        { ok: false, error: "Failed to upload file" },
+        { status: 500 }
+      )
     }
+
+    // Create document record
+    const documentInsert: Inserts<'verification_documents'> = {
+      request_id: verificationRequestId,
+      doc_type: documentType,
+      storage_path: storagePath,
+      mime_type: file.type,
+      size_bytes: file.size,
+      original_filename: file.name,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    const { data: documentRecord, error: docError } = await supabaseAdmin
+      .from('verification_documents')
+      .insert(documentInsert)
+      .select()
+      .maybeSingle()
+
+    if (docError || !documentRecord) {
+      // Clean up uploaded file on error
+      await supabaseAdmin.storage.from('documents').remove([storagePath])
+      
+      console.error('Error creating document record:', docError)
+      return NextResponse.json(
+        { ok: false, error: "Failed to save document record" },
+        { status: 500 }
+      )
+    }
+
+    // Get public URL for the uploaded file
+    const { data: { publicUrl } } = supabaseAdmin
+      .storage
+      .from('documents')
+      .getPublicUrl(storagePath)
 
     return NextResponse.json({
       ok: true,
       data: {
-        verification_request_id: verificationRequest.id,
-        documents: documentResults,
+        id: documentRecord.id,
+        request_id: verificationRequestId,
+        doc_type: documentType,
+        url: publicUrl,
+        status: documentRecord.status,
+        created_at: documentRecord.created_at
       },
-      message: "Document upload URLs generated successfully"
-    } as OnboardingApiResponse)
+      message: "Document uploaded successfully"
+    })
   } catch (error) {
-    console.error('Document upload preparation error:', error)
+    console.error('Document upload error:', error)
     return NextResponse.json(
-      { 
-        ok: false, 
-        error: "Something went wrong"
-      },
+      { ok: false, error: "Something went wrong" },
+      { status: 500 }
+    )
+  }
+}
+
+// GET endpoint to fetch user's documents
+export async function GET(request: NextRequest) {
+  try {
+    const supabase = createServerSupabaseClient(request)
+    
+    // Get current user
+    const user = await getCurrentUser(supabase)
+    if (!user) {
+      return NextResponse.json(
+        { ok: false, error: "Authentication required" },
+        { status: 401 }
+      )
+    }
+
+    // Fetch verification request and documents
+    const { data: verificationRequest } = await supabaseAdmin
+      .from('verification_requests')
+      .select(`
+        *,
+        verification_documents (*)
+      `)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!verificationRequest) {
+      return NextResponse.json({
+        ok: true,
+        data: {
+          request: null,
+          documents: []
+        }
+      })
+    }
+
+    // Get public URLs for documents
+    const documentsWithUrls = verificationRequest.verification_documents?.map((doc: any) => {
+      const { data: { publicUrl } } = supabaseAdmin
+        .storage
+        .from('documents')
+        .getPublicUrl(doc.storage_path)
+
+      return {
+        ...doc,
+        url: publicUrl
+      }
+    }) || []
+
+    return NextResponse.json({
+      ok: true,
+      data: {
+        request: {
+          id: verificationRequest.id,
+          status: verificationRequest.status,
+          created_at: verificationRequest.created_at,
+          submitted_at: verificationRequest.submitted_at,
+          reviewed_at: verificationRequest.reviewed_at,
+          rejection_reason: verificationRequest.rejection_reason
+        },
+        documents: documentsWithUrls
+      }
+    })
+  } catch (error) {
+    console.error('Error fetching documents:', error)
+    return NextResponse.json(
+      { ok: false, error: "Failed to fetch documents" },
       { status: 500 }
     )
   }

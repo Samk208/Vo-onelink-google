@@ -64,7 +64,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .from('users')
       .select('*')
       .eq('email', email)
-      .single()
+      .maybeSingle()
 
     if (userError) {
       console.error('User profile lookup error:', userError)
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       )
     }
 
-    console.log('Sign-in successful for user:', user.id)
+    console.log('Sign-in successful for user:', (user as any).id)
     return NextResponse.json(createAuthSuccessResponse(user))
   } catch (error) {
     console.error('Unexpected sign-in error:', error)

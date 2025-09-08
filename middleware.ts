@@ -28,6 +28,7 @@ export async function middleware(req: NextRequest) {
     '/auth/auth-code-error',
     '/influencers', // Add influencers page as public
     '/brands', // Add brands page as public
+    '/admin/login', // Admin login page is public
   ]
 
   // API routes that don't require authentication
@@ -56,14 +57,16 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  // Get user role from the 'users' table
-  const { data: user } = await supabase
+  // Get user role from the 'users' table with proper type inference
+  const query = supabase
     .from('users')
     .select('role')
     .eq('id', session.user.id)
-    .single()
+    .maybeSingle()
+  
+  const { data: user, error } = await query
 
-  if (!user) {
+  if (error || !user) {
     // This case might happen if a user is deleted but their session persists.
     // Clear session by redirecting to sign-in.
     const redirectUrl = new URL('/sign-in', req.url)
@@ -72,7 +75,14 @@ export async function middleware(req: NextRequest) {
   }
 
   // Role-based access control
-  const userRole = user.role
+  const userRole = (user as any).role
+
+  // Admin route protection
+  if (pathname.startsWith('/admin/') && pathname !== '/admin/login') {
+    if (userRole !== 'admin') {
+      return NextResponse.redirect(new URL('/admin/login?error=Unauthorized access', req.url))
+    }
+  }
 
   // Dashboard route protection
   if (pathname.startsWith('/dashboard/')) {

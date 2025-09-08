@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { ensureTypedClient } from "@/lib/supabase/types"
 import { type ApiResponse } from "@/lib/types"
 
 export interface PublicShopData {
@@ -41,42 +42,43 @@ export async function GET(
 ) {
   const { handle } = await params
   try {
-    const supabase = await createServerSupabaseClient()
-    
-    // Get influencer by handle
-    const { data: influencer, error: influencerError } = await supabase
-      .from('profiles')
-      .select(`
-        id,
-        handle,
-        first_name,
-        last_name,
-        bio,
-        avatar_url,
-        banner_url,
-        verified,
-        social_links
-      `)
-      .eq('handle', handle)
-      .eq('role', 'influencer')
-      .single()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
 
-    if (influencerError || !influencer) {
+    // Resolve shop by handle to get influencer_id
+    const { data: shop, error: shopLookupError } = await supabase
+      .from('shops')
+      .select('id, influencer_id, handle, name, description, logo')
+      .eq('handle', handle)
+      .maybeSingle()
+
+    if (shopLookupError || !shop) {
       return NextResponse.json(
         { ok: false, error: "Influencer shop not found" },
         { status: 404 }
       )
     }
 
-    // Get influencer's published shop products
+    // Fetch influencer basic public info from users table (typed schema)
+    const { data: influencerUser, error: userError } = await supabase
+      .from('users')
+      .select('id, name, avatar, verified')
+      .eq('id', shop.influencer_id)
+      .maybeSingle()
+
+    if (userError || !influencerUser) {
+      return NextResponse.json(
+        { ok: false, error: "Influencer user not found" },
+        { status: 404 }
+      )
+    }
+
+    // Get influencer's published shop products (remove non-existent columns)
     const { data: shopProducts, error: shopError } = await supabase
       .from('influencer_shop_products')
       .select(`
         id,
         custom_title,
-        custom_description,
         sale_price,
-        display_order,
         products (
           id,
           title,
@@ -89,9 +91,9 @@ export async function GET(
           in_stock
         )
       `)
-      .eq('influencer_id', influencer.id)
+      .eq('influencer_id', shop.influencer_id)
       .eq('published', true)
-      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: true })
 
     if (shopError) {
       console.error('Shop products fetch error:', shopError)
@@ -101,45 +103,53 @@ export async function GET(
       )
     }
 
-    // Format influencer data
+    // Format influencer data (limited to available fields)
     const formattedInfluencer = {
-      handle: influencer.handle,
-      name: `${influencer.first_name || ''} ${influencer.last_name || ''}`.trim() || 'Unknown Creator',
-      bio: influencer.bio,
-      avatar: influencer.avatar_url,
-      banner: influencer.banner_url,
-      followers: '0', // TODO: Calculate from followers table
-      verified: influencer.verified || false,
-      socialLinks: influencer.social_links || {}
+      handle: shop.handle,
+      name: influencerUser.name,
+      // bio/banner/socialLinks not in current typed schema; keep undefined
+      avatar: influencerUser.avatar ?? undefined,
+      verified: influencerUser.verified ?? false,
+      followers: '0',
     }
 
     // Format products (hide out-of-stock, show low-stock badges)
     const formattedProducts = shopProducts
-      ?.filter((item: any) => item.products.in_stock && item.products.stock_count > 0)
+      ?.filter((item: any) => item.products?.in_stock && item.products?.stock_count > 0)
       .map((item: any) => {
         const product = item.products
         const badges = []
         
         // Add stock-based badges
-        if (product.stock_count <= 5) {
+        if ((product?.stock_count ?? 0) <= 5) {
           badges.push('Low Stock')
         }
-        if (item.sale_price < product.price) {
+        if (
+          typeof item.sale_price === 'number' &&
+          typeof product?.price === 'number' &&
+          item.sale_price < product.price
+        ) {
           badges.push('Sale')
         }
         
         return {
           id: item.id,
-          title: product.title,
+          title: product?.title ?? 'Untitled',
           customTitle: item.custom_title,
-          customDescription: item.custom_description,
-          price: item.sale_price,
-          originalPrice: item.sale_price < product.price ? product.price : undefined,
-          image: product.images?.[0] || '/placeholder-product.png',
-          category: product.category,
-          region: product.region,
-          inStock: product.in_stock,
-          stockCount: product.stock_count,
+          price: item.sale_price ?? product?.price ?? 0,
+          originalPrice:
+            typeof item.sale_price === 'number' &&
+            typeof product?.price === 'number' &&
+            item.sale_price < product.price
+              ? product.price
+              : undefined,
+          image: Array.isArray(product?.images) && product.images.length > 0
+            ? product.images[0]
+            : '/placeholder-product.png',
+          category: product?.category ?? 'Unknown',
+          region: product?.region ?? [],
+          inStock: !!product?.in_stock,
+          stockCount: product?.stock_count ?? 0,
           rating: 4.5, // TODO: Calculate from reviews
           reviews: 0, // TODO: Calculate from reviews
           badges

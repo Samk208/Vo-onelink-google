@@ -1,0 +1,172 @@
+name: CI — Types, Build, E2E
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop, feature/**]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Show pnpm version
+        run: pnpm -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Validate Supabase secrets
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          if [ -z "${SUPABASE_ACCESS_TOKEN}" ]; then
+            echo "::error title=Missing secret::SUPABASE_ACCESS_TOKEN is not set. Create a Personal Access Token from your Supabase account (starts with sbp_)."
+            exit 1
+          fi
+          if ! echo "${SUPABASE_ACCESS_TOKEN}" | grep -q "^sbp_"; then
+            echo "::error title=Invalid token format::SUPABASE_ACCESS_TOKEN must start with 'sbp_'. You likely used a project API key (sb_secret...) instead of a Personal Access Token."
+            exit 1
+          fi
+          if [ -z "${SUPABASE_PROJECT_ID}" ]; then
+            echo "::error title=Missing secret::SUPABASE_PROJECT_ID is not set. Use your project reference from Settings → API."
+            exit 1
+          fi
+      - name: Check Supabase type drift
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          # Extra safety: trim potential CRLF/whitespace from the token and login explicitly
+          echo "Debug: token length before trim: ${#SUPABASE_ACCESS_TOKEN}"
+          TOKEN_TRIMMED=$(printf "%s" "$SUPABASE_ACCESS_TOKEN" | tr -d '\r' | awk '{$1=$1};1')
+          echo "Debug: token length after trim: ${#TOKEN_TRIMMED}"
+          echo "Debug: project ref set=${SUPABASE_PROJECT_ID:+yes}"
+          if [ ${#TOKEN_TRIMMED} -lt 60 ]; then
+            echo "::warning title=Suspicious token length::Personal Access Tokens are typically much longer than ${#TOKEN_TRIMMED} characters. If this fails, regenerate from Account → Access Tokens and paste the full value."
+          fi
+          supabase --version
+          supabase login --token "$TOKEN_TRIMMED"
+          # Use the logged-in token from Supabase CLI config; avoid env override
+          unset SUPABASE_ACCESS_TOKEN
+          # Link the project explicitly to ensure CLI uses correct context
+          supabase link --project-ref "$SUPABASE_PROJECT_ID" --debug || true
+          supabase gen types typescript --project-id "$SUPABASE_PROJECT_ID" > supabase.types.generated.ts
+          if ! diff -u lib/supabase/database.types.ts supabase.types.generated.ts; then
+            echo "::error title=Supabase types drift detected::Run 'supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > lib/supabase/database.types.ts' and commit."
+            exit 1
+          fi
+
+      - name: Type check (tsc)
+        run: pnpm typecheck
+
+  build:
+    needs: typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Show pnpm version
+        run: pnpm -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+      - name: Next.js build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: pnpm build
+
+  e2e:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Show pnpm version
+        run: pnpm -v
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers (with OS deps)
+        run: npx playwright install --with-deps
+
+      - name: Build app for E2E
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: pnpm build
+
+      - name: Run Playwright tests
+        run: pnpm test:e2e
+        continue-on-error: false
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload JSON results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-json
+          path: test-results.json
+          retention-days: 7
+
+      - name: Comment PR with results
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = 'Playwright did not produce a JSON results file.';
+            if (fs.existsSync('test-results.json')) {
+              const results = fs.readFileSync('test-results.json', 'utf8');
+              body = `## Playwright Results\n\n\`\`\`json\n${results}\n\`\`\``;
+            }
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
