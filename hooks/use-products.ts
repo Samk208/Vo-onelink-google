@@ -65,6 +65,8 @@ export function useProducts(params: UseProductsParams = {}): UseProductsReturn {
 
       console.log('Executing simplified query...')
       const { data, error, count } = await query
+      // Temporary debug log for investigations
+      console.log('DBG_products', { error, len: data?.length, sample: data?.slice(0, 2) })
 
       if (error) {
         console.error('Supabase query error:', error)

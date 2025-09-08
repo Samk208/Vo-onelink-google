@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getCurrentUser, hasRole } from '@/lib/auth-helpers'
 import { UserRole, type ApiResponse } from '@/lib/types'
 import { QueryData } from '@supabase/supabase-js'
+export const runtime = 'nodejs'
 
 export async function GET(request: NextRequest) {
   try {
@@ -54,6 +55,8 @@ export async function GET(request: NextRequest) {
 
     // Execute query and get results
     const { data, error, count } = await query
+    // Temporary debug log
+    console.log('DBG_products', { error, len: data?.length, sample: data?.slice(0, 2) })
 
     // Handle errors with early return
     if (error) {
