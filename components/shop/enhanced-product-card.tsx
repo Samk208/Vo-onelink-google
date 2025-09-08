@@ -38,11 +38,9 @@ export function EnhancedProductCard({
     lg: "h-96"
   }
 
-  const imageSizeClasses = {
-    sm: "h-32",
-    md: "h-48",
-    lg: "h-64"
-  }
+  // Use a fixed aspect ratio so the fill image always has a non-zero height
+  // This avoids Next.js warning: Image has "fill" and a height value of 0
+  // The card width determines the height via the aspect ratio
 
   return (
     <Card 
@@ -56,11 +54,12 @@ export function EnhancedProductCard({
     >
       <CardContent className="p-0 h-full flex flex-col">
         {/* Image Container */}
-        <div className={cn("relative overflow-hidden bg-gray-100", imageSizeClasses[size])}>
+        <div className={cn("relative overflow-hidden bg-gray-100 w-full aspect-[4/3]")}> 
           <Image
             src={product.images?.[0] || "/placeholder.jpg"}
             alt={product.title}
             fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
           

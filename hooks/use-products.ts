@@ -46,7 +46,7 @@ export function useProducts(params: UseProductsParams = {}): UseProductsReturn {
           *
         `, { count: 'exact' })
         .eq('active', true)
-        .eq('in_stock', true)
+        .or('in_stock.eq.true,stock_count.gt.0')
         .order('created_at', { ascending: false })
 
       // Apply filters
@@ -65,6 +65,8 @@ export function useProducts(params: UseProductsParams = {}): UseProductsReturn {
 
       console.log('Executing simplified query...')
       const { data, error, count } = await query
+      // Temporary debug log for investigations
+      console.log('DBG_products', { error, len: data?.length, sample: data?.slice(0, 2) })
 
       if (error) {
         console.error('Supabase query error:', error)
@@ -145,15 +147,14 @@ export function useProduct(productId: string | null) {
         setError(null)
 
         // Simplified query without user join
-        const query = supabase
+        const { data, error } = await supabase
           .from('products')
           .select('*')
           .eq('id', productId)
           .eq('active', true)
+          .or('in_stock.eq.true,stock_count.gt.0')
           .maybeSingle()
         
-        const { data, error } = await query
-
         if (error) throw error
         setProduct(data || null)
       } catch (err) {
@@ -179,9 +180,9 @@ export function useCategories() {
       try {
         const { data, error } = await supabase
           .from('products')
-          .select('category')
+          .select('category, in_stock, stock_count')
           .eq('active', true)
-          .eq('in_stock', true)
+          .or('in_stock.eq.true,stock_count.gt.0')
 
         if (error) throw error
 
