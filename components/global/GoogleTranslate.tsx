@@ -35,6 +35,21 @@ export default function GoogleTranslate() {
     // Programmatic language change via cookie + select
     const setLang = (lang: 'en' | 'ko' | 'zh-CN') => {
       try {
+        // If switching to English, we need to clear the translation
+        if (lang === 'en') {
+          // Clear all Google Translate cookies to reset to original language
+          document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;'
+          const host = window.location.hostname
+          if (host && host.includes('.')) {
+            document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.${host}; path=/;`
+          }
+          // Clear localStorage preference
+          try { localStorage.removeItem(preferredKey) } catch {}
+          // Reload page to show original English content
+          window.location.reload()
+          return
+        }
+        
         const cookieValue = `/auto/${lang}`
         // Set for path and domain (domain may be ignored on localhost)
         document.cookie = `googtrans=${cookieValue};path=/;max-age=${60 * 60 * 24 * 365}`
@@ -57,8 +72,7 @@ export default function GoogleTranslate() {
           }
         } else {
           // If not yet present, force a reload to let GT read the cookie
-          // but avoid infinite loops
-          // setTimeout(() => window.location.reload(), 50)
+          window.location.reload()
         }
       } catch (e) {
         // no-op
@@ -66,12 +80,13 @@ export default function GoogleTranslate() {
     }
     const getLang = (): 'auto' | 'en' | 'ko' | 'zh-CN' => {
       const m = document.cookie.match(/(?:^|; )googtrans=([^;]+)/)
-      if (!m) return 'auto'
+      if (!m) return 'en' // Default to English if no cookie
       const val = decodeURIComponent(m[1]) // e.g., /auto/ko
       const parts = val.split('/')
       const code = parts[2]
       if (code === 'en' || code === 'ko' || code === 'zh-CN') return code as 'en' | 'ko' | 'zh-CN'
-      return 'auto'
+      // If no valid language code or cookie is being cleared, return English
+      return 'en'
     }
     window.setTranslateLanguage = setLang
     window.getTranslateLanguage = getLang
@@ -112,18 +127,35 @@ export default function GoogleTranslate() {
         strategy="afterInteractive"
       />
       <style jsx global>{`
-        /* Hide Google Translate toolbar */
-        .goog-te-banner-frame.skiptranslate {
+        /* Hide Google Translate toolbar and banner */
+        .goog-te-banner-frame.skiptranslate,
+        .goog-te-banner-frame {
           display: none !important;
+          height: 0 !important;
+          visibility: hidden !important;
         }
+        
+        /* Reset body position that Google Translate adds */
         body {
           top: 0px !important;
+          position: relative !important;
+        }
+        
+        /* Hide the iframe at the top */
+        .skiptranslate iframe {
+          display: none !important;
+          visibility: hidden !important;
+          height: 0 !important;
+        }
+        
+        /* Keep the translation but hide the frame */
+        .skiptranslate:not(.goog-te-gadget):not(#google_translate_element) {
+          display: none !important;
         }
         
         /* Hide the default Google dropdown and branding completely */
         .goog-te-gadget { display: none !important; }
         .goog-logo-link { display: none !important; }
-        .goog-te-banner-frame { display: none !important; height: 0 !important; visibility: hidden !important; }
         .goog-te-balloon-frame { display: none !important; }
         #goog-gt-tt { display: none !important; visibility: hidden !important; }
         .goog-tooltip { display: none !important; }
