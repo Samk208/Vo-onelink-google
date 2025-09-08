@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/lib/auth-context"
 import { UserRole } from "@/lib/types"
+import GoogleTranslate from "@/components/global/GoogleTranslate"
 
 // Custom SVG icons to replace lucide-react
 const SearchIcon = () => (
@@ -107,6 +108,7 @@ const navigation = [
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [autoTranslate, setAutoTranslate] = useState(false)
+  const [currentLang, setCurrentLang] = useState<'auto' | 'en' | 'ko' | 'zh-CN'>('auto')
   const { user, signOut } = useAuth()
 
   const getDashboardUrl = (role: UserRole) => {
@@ -125,6 +127,38 @@ export function Header() {
   const handleSignOut = () => {
     signOut()
     setMobileMenuOpen(false)
+  }
+
+  // Sync header label with Google Translate cookie
+  useEffect(() => {
+    const get = (window as any).getTranslateLanguage as (() => 'auto' | 'en' | 'ko' | 'zh-CN') | undefined
+    if (typeof get === 'function') {
+      setCurrentLang(get())
+    }
+    const id = setInterval(() => {
+      const g = (window as any).getTranslateLanguage as (() => 'auto' | 'en' | 'ko' | 'zh-CN') | undefined
+      if (typeof g === 'function') {
+        setCurrentLang(g())
+      }
+    }, 1500)
+    return () => clearInterval(id)
+  }, [])
+
+  const changeLanguage = (lang: 'en' | 'ko' | 'zh-CN') => {
+    const set = (window as any).setTranslateLanguage as ((l: 'en' | 'ko' | 'zh-CN') => void) | undefined
+    if (typeof set === 'function') {
+      set(lang)
+      setCurrentLang(lang)
+    }
+  }
+
+  const langLabel = (code: 'auto' | 'en' | 'ko' | 'zh-CN') => {
+    switch (code) {
+      case 'en': return 'EN'
+      case 'ko': return 'KO'
+      case 'zh-CN': return '简体'
+      default: return 'EN'
+    }
   }
 
   return (
@@ -180,7 +214,9 @@ export function Header() {
 
           {/* Right Side Actions */}
           <div className="flex items-center space-x-4">
-            {/* Language Toggle */}
+            {/* Google Translate Widget */}
+            <GoogleTranslate />
+            {/* Language Toggle (EN / KO / 中文) */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -190,7 +226,7 @@ export function Header() {
                   aria-label="Language settings"
                 >
                   <GlobeIcon />
-                  <span className="text-sm">EN</span>
+                  <span className="text-sm" data-testid="lang-label">{langLabel(currentLang)}</span>
                   <ChevronDownIcon />
                 </Button>
               </DropdownMenuTrigger>
@@ -205,10 +241,10 @@ export function Header() {
                   </p>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>English</DropdownMenuItem>
-                <DropdownMenuItem>Español</DropdownMenuItem>
-                <DropdownMenuItem>Français</DropdownMenuItem>
-                <DropdownMenuItem>Deutsch</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => changeLanguage('en')}>English (EN)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => changeLanguage('ko')}>한국어 (KO)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => changeLanguage('zh-CN')}>中文（简体）</DropdownMenuItem>
+                {/* Traditional Chinese removed per requirements */}
               </DropdownMenuContent>
             </DropdownMenu>
 
