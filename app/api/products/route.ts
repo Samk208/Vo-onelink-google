@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         )
       `, { count: 'exact' })
       .eq('active', true)
-      .eq('in_stock', true)
+      .or('in_stock.eq.true,stock_count.gt.0')
       .order('created_at', { ascending: false })
 
     // Apply optional filters
