@@ -24,8 +24,10 @@ export default defineConfig({
     },
   ],
   globalSetup: './tests/setup/global-setup.ts',
+  // Run tests against dev server to avoid requiring a production build
+  // This helps when the project has a build issue but we still want to validate flows
   webServer: {
-    command: 'pnpm start',
+    command: 'pnpm dev --port 3000',
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

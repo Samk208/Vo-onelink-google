@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/lib/auth-context"
 import { UserRole } from "@/lib/types"
 import GoogleTranslate from "@/components/global/GoogleTranslate"
@@ -31,6 +32,17 @@ const MenuIcon = () => (
 const XIcon = () => (
   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+  </svg>
+)
+
+const GlobeIcon = () => (
+  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"
+    />
   </svg>
 )
 
@@ -95,6 +107,8 @@ const navigation = [
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [autoTranslate, setAutoTranslate] = useState(false)
+  const [currentLang, setCurrentLang] = useState<'auto' | 'en' | 'ko' | 'zh-CN'>('auto')
   const { user, signOut } = useAuth()
 
   const getDashboardUrl = (role: UserRole) => {
@@ -113,6 +127,38 @@ export function Header() {
   const handleSignOut = () => {
     signOut()
     setMobileMenuOpen(false)
+  }
+
+  // Sync header label with Google Translate cookie
+  useEffect(() => {
+    const get = (window as any).getTranslateLanguage as (() => 'auto' | 'en' | 'ko' | 'zh-CN') | undefined
+    if (typeof get === 'function') {
+      setCurrentLang(get())
+    }
+    const id = setInterval(() => {
+      const g = (window as any).getTranslateLanguage as (() => 'auto' | 'en' | 'ko' | 'zh-CN') | undefined
+      if (typeof g === 'function') {
+        setCurrentLang(g())
+      }
+    }, 1500)
+    return () => clearInterval(id)
+  }, [])
+
+  const changeLanguage = (lang: 'en' | 'ko' | 'zh-CN') => {
+    const set = (window as any).setTranslateLanguage as ((l: 'en' | 'ko' | 'zh-CN') => void) | undefined
+    if (typeof set === 'function') {
+      set(lang)
+      setCurrentLang(lang)
+    }
+  }
+
+  const langLabel = (code: 'auto' | 'en' | 'ko' | 'zh-CN') => {
+    switch (code) {
+      case 'en': return 'EN'
+      case 'ko': return 'KO'
+      case 'zh-CN': return '简体'
+      default: return 'EN'
+    }
   }
 
   return (
@@ -168,10 +214,39 @@ export function Header() {
 
           {/* Right Side Actions */}
           <div className="flex items-center space-x-4">
-            {/* Google Translate Component */}
-            <div className="hidden sm:flex items-center">
-              <GoogleTranslate />
-            </div>
+            {/* Google Translate Widget */}
+            <GoogleTranslate />
+            {/* Language Toggle (EN / KO / 中文) */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="hidden sm:flex items-center space-x-1"
+                  aria-label="Language settings"
+                >
+                  <GlobeIcon />
+                  <span className="text-sm" data-testid="lang-label">{langLabel(currentLang)}</span>
+                  <ChevronDownIcon />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <div className="p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Auto-translate via Google</span>
+                    <Switch checked={autoTranslate} onCheckedChange={setAutoTranslate} />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Automatically translate content to your preferred language
+                  </p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => changeLanguage('en')}>English (EN)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => changeLanguage('ko')}>한국어 (KO)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => changeLanguage('zh-CN')}>中文（简体）</DropdownMenuItem>
+                {/* Traditional Chinese removed per requirements */}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             {user ? (
               /* Authenticated User Menu */
@@ -269,10 +344,6 @@ export function Header() {
                 </Link>
               ))}
               <div className="border-t pt-4 mt-4">
-                {/* Mobile Google Translate */}
-                <div className="px-3 pb-3">
-                  <GoogleTranslate />
-                </div>
                 {user ? (
                   <div className="flex flex-col space-y-3 px-3">
                     <div className="flex items-center space-x-3 pb-3">
