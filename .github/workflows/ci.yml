@@ -494,6 +494,28 @@ jobs:
     needs: [build, db-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Matrix across browser/device and shards; suite categorization via tags
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+        device: [desktop, mobile]
+        shardIndex: [1, 2]
+        shardTotal: [2]
+        suite: [smoke, regression]
+        include:
+          - browser: chromium
+            device: mobile
+            project: chromium-mobile
+          - browser: chromium
+            device: desktop
+            project: chromium
+          - browser: firefox
+            device: desktop
+            project: firefox
+          - browser: webkit
+            device: desktop
+            project: webkit
     # This job needs to comment on PRs; grant only what is necessary
     permissions:
       contents: read
@@ -502,6 +524,9 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # Optional viewport override for desktop runs; config can read this env
+      PW_VIEWPORT: ${{ matrix.device == 'desktop' && '1280x800' || '' }}
+      PW_SUITE: ${{ matrix.suite }}
     steps:
       - uses: actions/checkout@<CHECKOUT_SHA>
       - uses: pnpm/action-setup@<PNPM_SETUP_SHA>
@@ -554,6 +579,19 @@ jobs:
             exit 1
           fi
 
+      - name: Seed DB for tests (optional)
+        if: ${{ steps.decide_e2e.outputs.run_e2e == 'true' && secrets.SUPABASE_DB_URL != '' }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client
+          # Minimal seed wrapped in a transaction; adjust to your schema
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 \
+            -c "BEGIN;" \
+            -c "INSERT INTO public.products (name, price_cents) VALUES ('__seed_product__', 1999) ON CONFLICT DO NOTHING;" \
+            -c "COMMIT;"
+
       - name: Install Playwright browsers (with OS deps)
         if: ${{ steps.decide_e2e.outputs.run_e2e == 'true' }}
         run: npx playwright install --with-deps
@@ -565,16 +603,26 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: pnpm build
 
-      - name: Run Playwright tests
+      - name: Run Playwright tests (matrix)
         if: ${{ steps.decide_e2e.outputs.run_e2e == 'true' }}
-        run: pnpm test:e2e
+        env:
+          # Force project selection for matrix
+          PW_PROJECT: ${{ matrix.project }}
+        run: |
+          set -euo pipefail
+          # Determine grep by suite; default regression runs the full suite
+          if [ "${{ matrix.suite }}" = "smoke" ]; then GREP='--grep @smoke'; else GREP=''; fi
+          # Visual suite example (not enabled by default): --grep @visual
+          # API suite example (not enabled by default): --grep @api
+          pnpm playwright test --project="$PW_PROJECT" $GREP \
+            --shard="${{ matrix.shardIndex }}/${{ matrix.shardTotal }}"
         continue-on-error: false
 
       - name: Upload Playwright HTML report
         if: ${{ always() && steps.decide_e2e.outputs.run_e2e == 'true' }}
         uses: actions/upload-artifact@<UPLOAD_ARTIFACT_SHA> # was actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}-shard${{ matrix.shardIndex }}-${{ matrix.suite }}
           path: playwright-report/
           retention-days: 7
 
@@ -582,12 +630,21 @@ jobs:
         if: ${{ always() && steps.decide_e2e.outputs.run_e2e == 'true' }}
         uses: actions/upload-artifact@<UPLOAD_ARTIFACT_SHA>
         with:
-          name: playwright-json
+          name: playwright-json-${{ matrix.project }}-shard${{ matrix.shardIndex }}-${{ matrix.suite }}
           path: test-results.json
           retention-days: 7
 
-      - name: Comment PR with results
-        if: ${{ github.event_name == 'pull_request' && steps.decide_e2e.outputs.run_e2e == 'true' }}
+      - name: Upload JUnit results
+        if: ${{ always() && steps.decide_e2e.outputs.run_e2e == 'true' }}
+        uses: actions/upload-artifact@<UPLOAD_ARTIFACT_SHA>
+        with:
+          name: junit-${{ matrix.project }}-shard${{ matrix.shardIndex }}-${{ matrix.suite }}
+          path: junit.xml
+          retention-days: 7
+
+      - name: Comment PR with results (single job)
+        # Avoid spamming; only comment for one canonical combination
+        if: ${{ github.event_name == 'pull_request' && steps.decide_e2e.outputs.run_e2e == 'true' && matrix.project == 'chromium' && matrix.suite == 'smoke' && matrix.shardIndex == 1 }}
         uses: actions/github-script@<GITHUB_SCRIPT_SHA> # was actions/github-script@v7
         with:
           script: |
@@ -595,7 +652,7 @@ jobs:
             let body = 'Playwright did not produce a JSON results file.';
             if (fs.existsSync('test-results.json')) {
               const results = fs.readFileSync('test-results.json', 'utf8');
-              body = `## Playwright Results\n\n\`\`\`json\n${results}\n\`\`\``;
+              body = `## E2E Smoke (chromium, desktop) Results\n\n\`\`\`json\n${results}\n\`\`\`\n\nArtifacts: check HTML/JUnit for full matrix.`;
             }
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -603,3 +660,81 @@ jobs:
               repo: context.repo.repo,
               body
             });
+
+      - name: Cleanup DB (optional)
+        if: ${{ always() && secrets.SUPABASE_DB_URL != '' }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y && sudo apt-get install -y postgresql-client
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 \
+            -c "BEGIN;" \
+            -c "DELETE FROM public.products WHERE name IN ('__seed_product__','__ci_tmp__');" \
+            -c "COMMIT;"
+
+      - name: Stop app
+        if: ${{ always() }}
+        run: |
+          if [ -f app.pid ]; then kill $(cat app.pid) || true; fi
+
+  api-tests:
+    name: API Smoke, Contract, Perf & Security
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@<CHECKOUT_SHA>
+      - uses: pnpm/action-setup@<PNPM_SETUP_SHA>
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@<SETUP_NODE_SHA>
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - name: Configure pnpm store path
+        run: pnpm config set store-dir ~/.pnpm-store
+      - name: Cache pnpm store
+        uses: actions/cache@<ACTIONS_CACHE_SHA>
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+      - name: Install deps
+        run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
+      - name: Build app
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'anon_dummy_key' }}
+        run: pnpm build
+      - name: Start app (background)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'anon_dummy_key' }}
+        run: |
+          nohup pnpm start > .next-app.log 2>&1 & echo $! > app.pid
+          sleep 2
+      - name: Wait for app to be ready
+        run: npx wait-on http://localhost:3000 --timeout 30000
+      - name: Run API contract, smoke & security tests
+        run: pnpm ci:api
+      - name: Upload API testing artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@<UPLOAD_ARTIFACT_SHA>
+        with:
+          name: api-tests
+          path: artifacts/api-tests
+          retention-days: 7
+      - name: Print server logs on failure
+        if: ${{ failure() }}
+        run: |
+          echo '--- .next-app.log (tail) ---'
+          tail -n 200 .next-app.log || true
+      - name: Stop app
+        if: ${{ always() }}
+        run: |
+          if [ -f app.pid ]; then kill $(cat app.pid) || true; fi
