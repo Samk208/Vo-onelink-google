@@ -11,11 +11,14 @@
     "e2e": "playwright test",
     "test:e2e": "pnpm e2e",
     "verify": "pnpm lint && pnpm typecheck && pnpm build && pnpm e2e",
+    "ci:quality": "pnpm lint && pnpm format:check && pnpm typecheck",
+    "test:unit": "echo \"No unit tests defined. Add vitest/jest and replace this script.\" && exit 0",
     "test:api:smoke": "newman run tests/api/one-link.postman.json -r cli,htmlextra --reporter-htmlextra-export artifacts/api-tests/newman-smoke.html --timeout-request 10000 --delay-request 50",
     "test:api:security": "newman run tests/api/one-link.postman.json --folder 'Security - SQLi attempt' -r cli,htmlextra --reporter-htmlextra-export artifacts/api-tests/newman-security.html --timeout-request 10000",
     "test:api:contract": "swagger-cli validate tests/api/openapi.yml",
     "test:api:perf": "artillery run tests/api/perf/artillery.yml -o artifacts/api-tests/artillery-report.json",
-    "ci:api": "mkdir -p artifacts/api-tests && pnpm test:api:contract && pnpm test:api:smoke && pnpm test:api:security && pnpm test:api:perf"
+    "ci:api": "mkdir -p artifacts/api-tests && pnpm test:api:contract && pnpm test:api:smoke && pnpm test:api:security && pnpm test:api:perf",
+    "format:check": "prettier -c ."
   },
   "dependencies": {
     "@hello-pangea/dnd": "latest",
@@ -106,6 +109,7 @@
     "artillery": "^2.0.9",
     "newman": "^6.2.1",
     "newman-reporter-htmlextra": "^1.23.1",
-    "wait-on": "^8.0.2"
+    "wait-on": "^8.0.2",
+    "prettier": "^3.3.3"
   }
 }
