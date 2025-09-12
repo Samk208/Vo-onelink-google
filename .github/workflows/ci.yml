@@ -11,6 +11,7 @@ env:
   # Centralize tool versions for consistency and easy bumping
   NODE_VERSION: '20'
   PNPM_VERSION: '9'
+  NEXT_TELEMETRY_DISABLED: '1'
 
 concurrency:
   # Branch-specific concurrency group to avoid cross-branch cancellation
@@ -24,6 +25,44 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      tests: ${{ steps.filter.outputs.tests }}
+      docs: ${{ steps.filter.outputs.docs }}
+      only_docs: ${{ steps.compute.outputs.only_docs }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'app/**'
+              - 'components/**'
+              - 'lib/**'
+              - 'styles/**'
+              - 'middleware/**'
+              - 'next.config.*'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'tsconfig.json'
+            tests:
+              - 'tests/**'
+              - 'playwright.config.*'
+            docs:
+              - 'docs/**'
+              - '**/*.md'
+      - name: Compute docs-only
+        id: compute
+        run: |
+          if [ "${{ steps.filter.outputs.docs }}" = "true" ] && [ "${{ steps.filter.outputs.code }}" != "true" ] && [ "${{ steps.filter.outputs.tests }}" != "true" ]; then
+            echo "only_docs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "only_docs=false" >> "$GITHUB_OUTPUT"
+          fi
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -34,19 +73,19 @@ jobs:
       # NOTE: Pin all actions to commit SHAs for supply-chain security.
       # Replace <CHECKOUT_SHA>, <PNPM_SETUP_SHA>, <SETUP_NODE_SHA> with the exact immutable commit IDs.
       # See: https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions
-      - uses: actions/checkout@<CHECKOUT_SHA> # was actions/checkout@v4
-      - uses: pnpm/action-setup@<PNPM_SETUP_SHA> # was pnpm/action-setup@v4
+      - uses: actions/checkout@v4 # pinned to stable tag
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
-      - uses: actions/setup-node@<SETUP_NODE_SHA> # was actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
-        uses: actions/cache@<ACTIONS_CACHE_SHA>
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -56,6 +95,13 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
       - name: Show pnpm version
         run: pnpm -v
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-pw-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pw-
       - name: ESLint
         run: pnpm lint
   typecheck:
@@ -65,19 +111,19 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@<CHECKOUT_SHA>
-      - uses: pnpm/action-setup@<PNPM_SETUP_SHA>
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
-      - uses: actions/setup-node@<SETUP_NODE_SHA>
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
-        uses: actions/cache@<ACTIONS_CACHE_SHA>
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -89,7 +135,7 @@ jobs:
         run: pnpm -v
 
       - name: Install Supabase CLI
-        uses: supabase/setup-cli@<SUPABASE_CLI_SHA> # was supabase/setup-cli@v1
+        uses: supabase/setup-cli@v1
         with:
           version: latest
       - name: Decide Supabase checks
@@ -121,8 +167,19 @@ jobs:
             echo "::error title=Missing secret::SUPABASE_PROJECT_ID is not set. Use your project reference from Settings → API."
             exit 1
           fi
+      - name: Check Supabase URL present
+        id: check_supabase_url
+        if: ${{ steps.decide_supabase.outputs.run_supabase_checks == 'true' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: |
+          if [ -n "${NEXT_PUBLIC_SUPABASE_URL}" ]; then
+            echo "has_url=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_url=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Validate optional Supabase URL format (if provided)
-        if: ${{ steps.decide_supabase.outputs.run_supabase_checks == 'true' && secrets.NEXT_PUBLIC_SUPABASE_URL != '' }}
+        if: ${{ steps.decide_supabase.outputs.run_supabase_checks == 'true' && steps.check_supabase_url.outputs.has_url == 'true' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         run: |
@@ -156,25 +213,26 @@ jobs:
         run: pnpm typecheck
 
   build:
-    needs: typecheck
+    needs: [changes, typecheck]
+    if: ${{ needs.changes.outputs.only_docs != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@<CHECKOUT_SHA>
-      - uses: pnpm/action-setup@<PNPM_SETUP_SHA>
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
-      - uses: actions/setup-node@<SETUP_NODE_SHA>
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
-        uses: actions/cache@<ACTIONS_CACHE_SHA>
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -184,32 +242,47 @@ jobs:
         run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
       - name: Show pnpm version
         run: pnpm -v
+      - name: Cache Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-next-cache-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('app/**/*.ts*', 'components/**/*.ts*', 'lib/**/*.ts*', 'styles/**/*.css') }}
+          restore-keys: |
+            ${{ runner.os }}-next-cache-
       - name: Next.js build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'anon_dummy_key' }}
+          NODE_OPTIONS: --max_old_space_size=4096
         run: pnpm build
+      - name: Upload Next.js build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: .next
+          retention-days: 3
 
   db-smoke:
-    needs: typecheck
+    needs: [changes, typecheck]
+    if: ${{ needs.changes.outputs.only_docs != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@<CHECKOUT_SHA>
-      - uses: pnpm/action-setup@<PNPM_SETUP_SHA>
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
-      - uses: actions/setup-node@<SETUP_NODE_SHA>
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
-        uses: actions/cache@<ACTIONS_CACHE_SHA>
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -257,23 +330,24 @@ jobs:
 
   db-validate:
     name: Supabase Schema Validation
-    needs: typecheck
+    needs: [changes, typecheck]
+    if: ${{ needs.changes.outputs.only_docs != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@<CHECKOUT_SHA>
-      - uses: pnpm/action-setup@<PNPM_SETUP_SHA>
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
-      - uses: actions/setup-node@<SETUP_NODE_SHA>
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - name: Install Supabase CLI
-        uses: supabase/setup-cli@<SUPABASE_CLI_SHA>
+        uses: supabase/setup-cli@v1
         with:
           version: latest
       - name: Decide validation run
@@ -323,7 +397,7 @@ jobs:
           if [ ! -s artifacts/db-validate/fk_list.tsv ]; then echo '::warning title=No FKs detected::Please verify foreign key constraints.'; fi
       - name: Upload validation artifacts
         if: ${{ steps.decide_validate.outputs.run_validate == 'true' }}
-        uses: actions/upload-artifact@<UPLOAD_ARTIFACT_SHA>
+        uses: actions/upload-artifact@v4
         with:
           name: supabase-schema-validation
           path: artifacts/db-validate
@@ -331,13 +405,14 @@ jobs:
 
   db-integrity:
     name: Supabase Data Integrity Tests
-    needs: db-validate
+    needs: [changes, db-validate]
+    if: ${{ needs.changes.outputs.only_docs != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@<CHECKOUT_SHA>
+      - uses: actions/checkout@v4
       - name: Decide integrity run
         id: decide_integrity
         env:
@@ -383,7 +458,7 @@ jobs:
           echo "REST insert status: $STATUS" > artifacts/db-integrity/rest_anon_insert_status.txt
           if [ "$STATUS" -lt 400 ]; then echo '::error title=RLS breach::Anon insert unexpectedly succeeded.'; exit 1; fi
       - name: Upload integrity artifacts
-        uses: actions/upload-artifact@<UPLOAD_ARTIFACT_SHA>
+        uses: actions/upload-artifact@v4
         with:
           name: supabase-data-integrity
           path: artifacts/db-integrity
@@ -391,15 +466,16 @@ jobs:
 
   db-migrations:
     name: Migration Lint & Dry-Run
-    needs: typecheck
+    needs: [changes, typecheck]
+    if: ${{ needs.changes.outputs.only_docs != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@<CHECKOUT_SHA>
+      - uses: actions/checkout@v4
       - name: Install Supabase CLI
-        uses: supabase/setup-cli@<SUPABASE_CLI_SHA>
+        uses: supabase/setup-cli@v1
         with:
           version: latest
       - name: Lint migrations
@@ -434,7 +510,7 @@ jobs:
             echo "ROLLBACK;"
           } | psql "$SUPABASE_DB_URL_NONPROD" -v ON_ERROR_STOP=1 | tee artifacts/db-migrations/dry_run_output.txt
       - name: Upload migration artifacts
-        uses: actions/upload-artifact@<UPLOAD_ARTIFACT_SHA>
+        uses: actions/upload-artifact@v4
         with:
           name: supabase-migrations
           path: |
@@ -444,13 +520,14 @@ jobs:
 
   db-performance:
     name: DB/API Performance Checks
-    needs: db-validate
+    needs: [changes, db-validate]
+    if: ${{ needs.changes.outputs.only_docs != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@<CHECKOUT_SHA>
+      - uses: actions/checkout@v4
       - name: Decide perf run
         id: decide_perf
         env:
@@ -485,13 +562,14 @@ jobs:
             -H "Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY" \
             "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/products?select=id&limit=1" > artifacts/db-performance/api_latency.txt
       - name: Upload performance artifacts
-        uses: actions/upload-artifact@<UPLOAD_ARTIFACT_SHA>
+        uses: actions/upload-artifact@v4
         with:
           name: supabase-performance
           path: artifacts/db-performance
           retention-days: 7
   e2e:
-    needs: [build, db-smoke]
+    needs: [changes, build, db-smoke]
+    if: ${{ needs.changes.outputs.only_docs != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Matrix across browser/device and shards; suite categorization via tags
@@ -528,19 +606,19 @@ jobs:
       PW_VIEWPORT: ${{ matrix.device == 'desktop' && '1280x800' || '' }}
       PW_SUITE: ${{ matrix.suite }}
     steps:
-      - uses: actions/checkout@<CHECKOUT_SHA>
-      - uses: pnpm/action-setup@<PNPM_SETUP_SHA>
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
-      - uses: actions/setup-node@<SETUP_NODE_SHA>
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
-        uses: actions/cache@<ACTIONS_CACHE_SHA>
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -579,8 +657,20 @@ jobs:
             exit 1
           fi
 
+      - name: Check DB URL present
+        id: check_db_url
+        if: ${{ steps.decide_e2e.outputs.run_e2e == 'true' }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -n "${SUPABASE_DB_URL}" ]; then
+            echo "has_db_url=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_db_url=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Seed DB for tests (optional)
-        if: ${{ steps.decide_e2e.outputs.run_e2e == 'true' && secrets.SUPABASE_DB_URL != '' }}
+        if: ${{ steps.decide_e2e.outputs.run_e2e == 'true' && steps.check_db_url.outputs.has_db_url == 'true' }}
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
@@ -595,13 +685,12 @@ jobs:
       - name: Install Playwright browsers (with OS deps)
         if: ${{ steps.decide_e2e.outputs.run_e2e == 'true' }}
         run: npx playwright install --with-deps
-
-      - name: Build app for E2E
+      - name: Download Next.js build artifact
         if: ${{ steps.decide_e2e.outputs.run_e2e == 'true' }}
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-        run: pnpm build
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: .next
 
       - name: Run Playwright tests (matrix)
         if: ${{ steps.decide_e2e.outputs.run_e2e == 'true' }}
@@ -620,7 +709,7 @@ jobs:
 
       - name: Upload Playwright HTML report
         if: ${{ always() && steps.decide_e2e.outputs.run_e2e == 'true' }}
-        uses: actions/upload-artifact@<UPLOAD_ARTIFACT_SHA> # was actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ matrix.project }}-shard${{ matrix.shardIndex }}-${{ matrix.suite }}
           path: playwright-report/
@@ -628,7 +717,7 @@ jobs:
 
       - name: Upload JSON results
         if: ${{ always() && steps.decide_e2e.outputs.run_e2e == 'true' }}
-        uses: actions/upload-artifact@<UPLOAD_ARTIFACT_SHA>
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-json-${{ matrix.project }}-shard${{ matrix.shardIndex }}-${{ matrix.suite }}
           path: test-results.json
@@ -636,7 +725,7 @@ jobs:
 
       - name: Upload JUnit results
         if: ${{ always() && steps.decide_e2e.outputs.run_e2e == 'true' }}
-        uses: actions/upload-artifact@<UPLOAD_ARTIFACT_SHA>
+        uses: actions/upload-artifact@v4
         with:
           name: junit-${{ matrix.project }}-shard${{ matrix.shardIndex }}-${{ matrix.suite }}
           path: junit.xml
@@ -645,7 +734,7 @@ jobs:
       - name: Comment PR with results (single job)
         # Avoid spamming; only comment for one canonical combination
         if: ${{ github.event_name == 'pull_request' && steps.decide_e2e.outputs.run_e2e == 'true' && matrix.project == 'chromium' && matrix.suite == 'smoke' && matrix.shardIndex == 1 }}
-        uses: actions/github-script@<GITHUB_SCRIPT_SHA> # was actions/github-script@v7
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
@@ -662,7 +751,7 @@ jobs:
             });
 
       - name: Cleanup DB (optional)
-        if: ${{ always() && secrets.SUPABASE_DB_URL != '' }}
+        if: ${{ always() && steps.check_db_url.outputs.has_db_url == 'true' }}
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
@@ -686,19 +775,19 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@<CHECKOUT_SHA>
-      - uses: pnpm/action-setup@<PNPM_SETUP_SHA>
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
-      - uses: actions/setup-node@<SETUP_NODE_SHA>
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
-        uses: actions/cache@<ACTIONS_CACHE_SHA>
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
@@ -706,11 +795,11 @@ jobs:
             ${{ runner.os }}-pnpm-store-
       - name: Install deps
         run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
-      - name: Build app
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'anon_dummy_key' }}
-        run: pnpm build
+      - name: Download Next.js build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: .next
       - name: Start app (background)
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
@@ -724,7 +813,7 @@ jobs:
         run: pnpm ci:api
       - name: Upload API testing artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@<UPLOAD_ARTIFACT_SHA>
+        uses: actions/upload-artifact@v4
         with:
           name: api-tests
           path: artifacts/api-tests
@@ -732,9 +821,14 @@ jobs:
       - name: Print server logs on failure
         if: ${{ failure() }}
         run: |
-          echo '--- .next-app.log (tail) ---'
-          tail -n 200 .next-app.log || true
-      - name: Stop app
-        if: ${{ always() }}
+          set -euo pipefail
+          if [ -f coverage/coverage-summary.json ]; then
+            TOTAL=$(cat coverage/coverage-summary.json | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const j=JSON.parse(d);console.log(j.total.lines.pct)})")
+            echo "Total line coverage: ${TOTAL}%"
+            awk -v c="$TOTAL" 'BEGIN{ if (c+0 < 80) { exit 1 } }'
+          else
+            echo "No coverage summary found; skipping coverage gate. Add unit/integration tests to enable this gate."
+          fi
+      - name: Technical debt budget placeholder
         run: |
-          if [ -f app.pid ]; then kill $(cat app.pid) || true; fi
+          echo "Track debt via ESLint rule counts and TODOs in future iterations."
