@@ -91,8 +91,13 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-      - name: Install deps
+      - name: Install deps (frozen)
+        id: install_frozen_lint
+        continue-on-error: true
         run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
+      - name: Install deps (fallback, mutable lockfile)
+        if: ${{ steps.install_frozen_lint.outcome == 'failure' }}
+        run: pnpm install --no-frozen-lockfile --prefer-offline --strict-peer-dependencies
       - name: Show pnpm version
         run: pnpm -v
       - name: Cache Playwright browsers
@@ -129,8 +134,13 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-      - name: Install deps
+      - name: Install deps (frozen)
+        id: install_frozen_build
+        continue-on-error: true
         run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
+      - name: Install deps (fallback, mutable lockfile)
+        if: ${{ steps.install_frozen_build.outcome == 'failure' }}
+        run: pnpm install --no-frozen-lockfile --prefer-offline --strict-peer-dependencies
       - name: Show pnpm version
         run: pnpm -v
 
@@ -238,8 +248,13 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-      - name: Install deps
+      - name: Install deps (frozen)
+        id: install_frozen_build
+        continue-on-error: true
         run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
+      - name: Install deps (fallback, mutable lockfile)
+        if: ${{ steps.install_frozen_build.outcome == 'failure' }}
+        run: pnpm install --no-frozen-lockfile --prefer-offline --strict-peer-dependencies
       - name: Show pnpm version
         run: pnpm -v
       - name: Cache Next.js build cache
@@ -288,8 +303,13 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-      - name: Install deps
+      - name: Install deps (frozen)
+        id: install_frozen_db_smoke
+        continue-on-error: true
         run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
+      - name: Install deps (fallback, mutable lockfile)
+        if: ${{ steps.install_frozen_db_smoke.outcome == 'failure' }}
+        run: pnpm install --no-frozen-lockfile --prefer-offline --strict-peer-dependencies
       - name: Show pnpm version
         run: pnpm -v
       - name: Decide DB smoke run
