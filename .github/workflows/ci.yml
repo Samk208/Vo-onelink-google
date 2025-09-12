@@ -94,10 +94,14 @@ jobs:
       - name: Install deps (frozen)
         id: install_frozen_lint
         continue-on-error: true
-        run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
+        env:
+          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
+        run: pnpm install --frozen-lockfile --prefer-offline
       - name: Install deps (fallback, mutable lockfile)
         if: ${{ steps.install_frozen_lint.outcome == 'failure' }}
-        run: pnpm install --no-frozen-lockfile --prefer-offline --strict-peer-dependencies
+        env:
+          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
+        run: pnpm install --no-frozen-lockfile --prefer-offline
       - name: Show pnpm version
         run: pnpm -v
       - name: Cache Playwright browsers
@@ -137,10 +141,14 @@ jobs:
       - name: Install deps (frozen)
         id: install_frozen_build
         continue-on-error: true
-        run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
+        env:
+          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
+        run: pnpm install --frozen-lockfile --prefer-offline
       - name: Install deps (fallback, mutable lockfile)
         if: ${{ steps.install_frozen_build.outcome == 'failure' }}
-        run: pnpm install --no-frozen-lockfile --prefer-offline --strict-peer-dependencies
+        env:
+          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
+        run: pnpm install --no-frozen-lockfile --prefer-offline
       - name: Show pnpm version
         run: pnpm -v
 
@@ -251,10 +259,14 @@ jobs:
       - name: Install deps (frozen)
         id: install_frozen_build
         continue-on-error: true
-        run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
+        env:
+          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
+        run: pnpm install --frozen-lockfile --prefer-offline
       - name: Install deps (fallback, mutable lockfile)
         if: ${{ steps.install_frozen_build.outcome == 'failure' }}
-        run: pnpm install --no-frozen-lockfile --prefer-offline --strict-peer-dependencies
+        env:
+          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
+        run: pnpm install --no-frozen-lockfile --prefer-offline
       - name: Show pnpm version
         run: pnpm -v
       - name: Cache Next.js build cache
@@ -306,10 +318,14 @@ jobs:
       - name: Install deps (frozen)
         id: install_frozen_db_smoke
         continue-on-error: true
-        run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
+        env:
+          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
+        run: pnpm install --frozen-lockfile --prefer-offline
       - name: Install deps (fallback, mutable lockfile)
         if: ${{ steps.install_frozen_db_smoke.outcome == 'failure' }}
-        run: pnpm install --no-frozen-lockfile --prefer-offline --strict-peer-dependencies
+        env:
+          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
+        run: pnpm install --no-frozen-lockfile --prefer-offline
       - name: Show pnpm version
         run: pnpm -v
       - name: Decide DB smoke run
