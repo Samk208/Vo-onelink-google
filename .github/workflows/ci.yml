@@ -82,6 +82,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
@@ -129,6 +130,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
@@ -247,6 +249,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
@@ -306,6 +309,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
@@ -382,6 +386,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -651,6 +656,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
@@ -820,6 +826,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store

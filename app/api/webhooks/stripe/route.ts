@@ -151,7 +151,7 @@ async function handleCheckoutSessionCompleted(session: any) {
             stock_count: newStock,
             in_stock: newStock > 0,
             updated_at: new Date().toISOString(),
-          })
+          } as any)
           .eq('id', item.productId)
 
         if (stockUpdateError) {
@@ -182,7 +182,7 @@ async function handleCheckoutSessionCompleted(session: any) {
 
       const { error: supplierCommissionError } = await supabaseAdmin
         .from('commissions')
-        .insert(supplierCommission)
+        .insert(supplierCommission as any)
 
       if (supplierCommissionError) {
         console.error(`Failed to create supplier commission for product ${item.productId}:`, supplierCommissionError)
@@ -209,7 +209,7 @@ async function handleCheckoutSessionCompleted(session: any) {
 
           const { error: influencerCommissionError } = await supabaseAdmin
             .from('commissions')
-            .insert(influencerCommission)
+            .insert(influencerCommission as any)
 
           if (influencerCommissionError) {
             console.error(`Failed to create influencer commission for product ${item.productId}:`, influencerCommissionError)

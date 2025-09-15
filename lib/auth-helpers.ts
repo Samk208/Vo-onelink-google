@@ -69,7 +69,7 @@ export async function createUserProfile(
     // Use supabaseAdmin to bypass RLS for user creation
     const { data: user, error } = await supabaseAdmin
       .from('users')
-      .insert(insertData)
+      .insert(insertData as any)
       .select()
       .single()
 
@@ -115,7 +115,7 @@ export async function updateUserProfile(
 
     const { data: user, error } = await supabaseAdmin
       .from('users')
-      .update(updateData)
+      .update(updateData as any)
       .eq('id', userId)
       .select()
       .single()
