@@ -1,3 +1,6 @@
+packages:
+  - '.'
+
 ignoredBuiltDependencies:
   - '@playwright/browser-chromium'
   - aws-sdk
