@@ -26,9 +26,23 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# thunder client collections (may contain sensitive keys)
+.thunder-client/
+
+# vscode local settings (may contain sensitive database connections)
+.vscode/settings.local.json
+
 # vercel
 .vercel
 
 # playwright
 /playwright-report/
 /test-results/
+tsconfig.tsbuildinfo
+
+# build logs and error reports
+builderror.md
+*error.md
+*error.txt
+tsc-errors.txt
+build-errors.log

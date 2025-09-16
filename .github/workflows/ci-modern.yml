@@ -1,0 +1,335 @@
+name: Complete CI/CD Pipeline (Modern)
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: '20'
+  NEXT_TELEMETRY_DISABLED: '1'
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      tests: ${{ steps.filter.outputs.tests }}
+      docs: ${{ steps.filter.outputs.docs }}
+      infra: ${{ steps.filter.outputs.infra }}
+      only_docs: ${{ steps.compute.outputs.only_docs }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'app/**'
+              - 'components/**'
+              - 'lib/**'
+              - 'styles/**'
+              - 'middleware/**'
+              - 'next.config.*'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'tsconfig.json'
+            tests:
+              - 'tests/**'
+              - 'playwright.config.*'
+            docs:
+              - 'docs/**'
+              - '**/*.md'
+            infra:
+              - '.github/**'
+              - 'supabase/**'
+      - name: Compute docs-only
+        id: compute
+        run: |
+          if [ "${{ steps.filter.outputs.docs }}" = "true" ] && [ "${{ steps.filter.outputs.code }}" != "true" ] && [ "${{ steps.filter.outputs.tests }}" != "true" ] && [ "${{ steps.filter.outputs.infra }}" != "true" ]; then
+            echo "only_docs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "only_docs=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  quality:
+    name: Lint, Format Check, Typecheck
+    needs: changes
+    if: ${{ needs.changes.outputs.only_docs != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          install: 'true'
+      - name: ESLint
+        run: pnpm lint
+      - name: Prettier (check)
+        run: pnpm format:check
+      - name: TypeScript
+        run: pnpm typecheck
+
+  security:
+    name: Supply Chain & Security Checks
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependency Review (PR only)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/dependency-review-action@v4
+      - name: CodeQL Init
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+      - name: CodeQL Autobuild
+        uses: github/codeql-action/autobuild@v3
+      - name: CodeQL Analyze
+        uses: github/codeql-action/analyze@v3
+      - name: SBOM (CycloneDX via npx)
+        run: npx @cyclonedx/cyclonedx-npm --output-format xml --output bom.xml
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: bom.xml
+          retention-days: 14
+
+  test-unit:
+    name: Unit Tests
+    needs: quality
+    if: ${{ needs.changes.outputs.only_docs != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          install: 'true'
+      - name: Run unit tests
+        run: pnpm test:unit --if-present
+
+  build:
+    name: Build Application
+    needs: [quality, test-unit]
+    if: ${{ needs.changes.outputs.only_docs != 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          pnpm-version: ${{ env.PNPM_VERSION }}
+          install: 'true'
+      - name: Cache Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-next-cache-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('app/**/*.ts*', 'components/**/*.ts*', 'lib/**/*.ts*', 'styles/**/*.css') }}
+          restore-keys: |
+            ${{ runner.os }}-next-cache-
+      - name: Build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'anon_dummy_key' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NODE_OPTIONS: --max_old_space_size=4096
+        run: pnpm build
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: .next
+          retention-days: 7
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: .next
+
+  test-integration:
+    name: Integration/API Tests
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          pnpm-version: ${{ env.PNPM_VERSION }}
+          install: 'true'
+      - name: Download Build
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: .next
+      - name: Start app (background)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'anon_dummy_key' }}
+        run: |
+          nohup pnpm start > .next-app.log 2>&1 & echo $! > app.pid
+          npx wait-on http://localhost:3000 --timeout 45000
+      - name: Run API tests
+        run: pnpm ci:api
+      - name: Upload API artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-tests
+          path: artifacts/api-tests
+          retention-days: 7
+      - name: Stop app
+        if: ${{ always() }}
+        run: |
+          if [ -f app.pid ]; then kill $(cat app.pid) || true; fi
+
+  test-e2e:
+    name: E2E (Playwright matrix)
+    needs: [build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+        device: [desktop]
+        suite: [smoke, regression]
+        include:
+          - browser: chromium
+            device: desktop
+            project: chromium
+          - browser: firefox
+            device: desktop
+            project: firefox
+          - browser: webkit
+            device: desktop
+            project: webkit
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          pnpm-version: ${{ env.PNPM_VERSION }}
+          install: 'true'
+      - name: Validate E2E inputs
+        run: |
+          if [ -z "${NEXT_PUBLIC_SUPABASE_URL}" ] || [ -z "${NEXT_PUBLIC_SUPABASE_ANON_KEY}" ]; then
+            echo "::warning::Missing Supabase env for E2E; skipping."; echo "skip=true" >> $GITHUB_ENV
+          fi
+      - name: Install Playwright browsers
+        if: ${{ env.skip != 'true' }}
+        run: npx playwright install --with-deps
+      - name: Download Build
+        if: ${{ env.skip != 'true' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: .next
+      - name: Start app (background)
+        if: ${{ env.skip != 'true' }}
+        run: |
+          nohup pnpm start > .next-app.log 2>&1 & echo $! > app.pid
+          npx wait-on http://localhost:3000 --timeout 45000
+      - name: Run Playwright
+        if: ${{ env.skip != 'true' }}
+        env:
+          PW_PROJECT: ${{ matrix.project }}
+          PW_SUITE: ${{ matrix.suite }}
+        run: |
+          if [ "${{ matrix.suite }}" = "smoke" ]; then GREP='--grep @smoke'; else GREP=''; fi
+          pnpm playwright test --project="$PW_PROJECT" $GREP
+      - name: Upload Playwright report
+        if: ${{ always() && env.skip != 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-${{ matrix.project }}-${{ matrix.suite }}
+          path: playwright-report/
+          retention-days: 7
+      - name: Comment PR (smoke chromium)
+        if: ${{ github.event_name == 'pull_request' && env.skip != 'true' && matrix.project == 'chromium' && matrix.suite == 'smoke' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'E2E smoke (chromium) completed. See artifacts for report.'
+            })
+      - name: Stop app
+        if: ${{ always() }}
+        run: |
+          if [ -f app.pid ]; then kill $(cat app.pid) || true; fi
+
+  quality-gates:
+    name: Quality Gates & Summary
+    needs: [security, test-integration, test-e2e]
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const outcomes = {
+              security: '${{ needs.security.result }}',
+              integration: '${{ needs.test-integration.result }}',
+              e2e: '${{ needs.test-e2e.result }}'
+            };
+            const ok = Object.values(outcomes).every(v => v === 'success' || v === 'skipped');
+            const emoji = ok ? '✅' : '❌';
+            const body = `${emoji} CI Summary\n\n` +
+              `- Security: ${outcomes.security}\n` +
+              `- Integration/API: ${outcomes.integration}\n` +
+              `- E2E: ${outcomes.e2e}\n` +
+              `\nReferences:\n` +
+              `- Security Hardening: https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions\n` +
+              `- SLSA: https://slsa.dev/\n` +
+              `- pnpm CI: https://pnpm.io/continuous-integration\n` +
+              `- Playwright CI: https://playwright.dev/docs/ci`;
+            if (context.eventName === 'pull_request') {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body
+              });
+            } else {
+              core.info(body);
+            }

@@ -46,7 +46,7 @@ export function useProducts(params: UseProductsParams = {}): UseProductsReturn {
           *
         `, { count: 'exact' })
         .eq('active', true)
-        .eq('in_stock', true)
+        .or('in_stock.eq.true,stock_count.gt.0')
         .order('created_at', { ascending: false })
 
       // Apply filters
@@ -65,6 +65,8 @@ export function useProducts(params: UseProductsParams = {}): UseProductsReturn {
 
       console.log('Executing simplified query...')
       const { data, error, count } = await query
+      // Temporary debug log for investigations
+      console.log('DBG_products', { error, len: data?.length, sample: data?.slice(0, 2) })
 
       if (error) {
         console.error('Supabase query error:', error)
@@ -150,10 +152,11 @@ export function useProduct(productId: string | null) {
           .select('*')
           .eq('id', productId)
           .eq('active', true)
-          .single()
-
+          .or('in_stock.eq.true,stock_count.gt.0')
+          .maybeSingle()
+        
         if (error) throw error
-        setProduct(data)
+        setProduct(data || null)
       } catch (err) {
         console.error('Error fetching product:', err)
         setError(err instanceof Error ? err.message : 'Failed to fetch product')
@@ -177,15 +180,17 @@ export function useCategories() {
       try {
         const { data, error } = await supabase
           .from('products')
-          .select('category')
+          .select('category, in_stock, stock_count')
           .eq('active', true)
-          .eq('in_stock', true)
+          .or('in_stock.eq.true,stock_count.gt.0')
 
         if (error) throw error
 
-        // Count categories
-        const categoryCount = data.reduce((acc: Record<string, number>, item) => {
-          acc[item.category] = (acc[item.category] || 0) + 1
+        // Count categories with proper type checking
+        const categoryCount = (data || []).reduce((acc: Record<string, number>, item: any) => {
+          if (item && item.category) {
+            acc[item.category] = (acc[item.category] || 0) + 1
+          }
           return acc
         }, {})
 

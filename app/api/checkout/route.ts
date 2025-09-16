@@ -6,6 +6,9 @@ import { checkoutSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
 
+// Declare runtime for Node.js-specific imports (Stripe)
+export const runtime = 'nodejs'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()
@@ -36,12 +39,14 @@ export async function POST(request: NextRequest) {
 
     // Fetch product details and calculate total
     const productIds = items.map(item => item.productId)
-    const { data: products, error: productsError } = await supabase
+    const query = supabase
       .from('products')
       .select('*')
       .in('id', productIds)
       .eq('active', true)
       .eq('in_stock', true)
+    
+    const { data: products, error: productsError } = await query
 
     if (productsError || !products || products.length !== items.length) {
       return NextResponse.json(
@@ -56,7 +61,7 @@ export async function POST(request: NextRequest) {
     const orderItems: any[] = []
 
     for (const item of items) {
-      const product = products.find(p => p.id === item.productId)
+      const product = products.find((p: any) => p.id === item.productId) as any
       if (!product) {
         return NextResponse.json(
           { ok: false, message: `Product ${item.productId} not found` },

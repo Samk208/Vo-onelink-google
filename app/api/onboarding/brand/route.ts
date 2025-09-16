@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser } from "@/lib/auth-helpers"
 import { brandDetailsSchema } from "@/lib/validators"
 import { type OnboardingApiResponse, type BrandDetails } from "@/lib/types"
+import { type Inserts } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -32,47 +33,40 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       )
     }
 
-    // Upsert brand details
-    const brandData = {
-      user_id: user.id,
-      company_name: validation.data.companyName,
-      business_type: validation.data.industry, // Map industry to business_type
-      website: validation.data.companyWebsite,
-      description: validation.data.description,
-      industry: validation.data.industry,
-      company_size: validation.data.companySize,
-      business_registration_number: validation.data.businessRegistrationNumber,
-      tax_id: validation.data.taxId,
-      updated_at: new Date().toISOString(),
-    }
+    // Persistence is behind an experimental feature flag until migrations are applied
+    if (process.env.EXPERIMENTAL_BRAND_PERSIST === 'true') {
+      try {
+        const payload = { ...validation.data, user_id: user.id, created_at: new Date().toISOString() }
+        const { error: insertError } = await supabase
+          .from('brand_details' as any)
+          .insert(payload as any)
 
-    const { data: brand, error } = await supabase
-      .from('brand_details')
-      .upsert(
-        brandData,
-        { 
-          onConflict: 'user_id',
-          ignoreDuplicates: false 
+        if (insertError) {
+          console.error('Brand details insert error:', insertError)
+          return NextResponse.json(
+            { ok: false, error: 'Failed to persist brand details' },
+            { status: 500 }
+          )
         }
-      )
-      .select()
-      .single()
 
-    if (error) {
-      console.error('Brand details upsert error:', error)
-      return NextResponse.json(
-        { ok: false, error: "Failed to update brand information" },
-        { status: 500 }
-      )
+        return NextResponse.json({
+          ok: true,
+          data: null,
+          message: "Brand information submitted successfully"
+        } as OnboardingApiResponse<BrandDetails | null>)
+      } catch (e) {
+        console.error('Brand details persistence exception:', e)
+        return NextResponse.json(
+          { ok: false, error: 'Unexpected error while saving brand details' },
+          { status: 500 }
+        )
+      }
     }
 
-    console.log(`🏢 [AUDIT] User ${user.id} updated brand details`)
-
-    return NextResponse.json({
-      ok: true,
-      data: brand,
-      message: "Brand information updated successfully"
-    } as OnboardingApiResponse<BrandDetails>)
+    return NextResponse.json(
+      { ok: false, error: 'Brand details persistence is disabled. Enable EXPERIMENTAL_BRAND_PERSIST to store data.' },
+      { status: 503 }
+    )
   } catch (error) {
     console.error('Brand details error:', error)
     return NextResponse.json(

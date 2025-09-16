@@ -20,26 +20,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = async (userId: string): Promise<User | null> => {
     try {
-      const { data, error } = await supabase
+      // Use proper type inference with query
+      const query = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
-        .single()
+        .maybeSingle()
+      
+      const { data, error } = await query
 
       if (error) {
         console.error('Error fetching user profile:', error)
         return null
       }
 
+      if (!data) {
+        return null
+      }
+
       return {
-        id: data.id,
-        email: data.email,
-        name: data.name,
-        role: data.role as UserRole,
-        avatar: data.avatar,
-        verified: data.verified,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
+        id: (data as any).id,
+        email: (data as any).email,
+        name: (data as any).name,
+        role: (data as any).role as UserRole,
+        avatar: (data as any).avatar,
+        verified: (data as any).verified,
+        createdAt: (data as any).created_at,
+        updatedAt: (data as any).updated_at,
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error)

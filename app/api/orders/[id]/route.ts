@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { ensureTypedClient } from "@/lib/supabase/types"
 import { updateOrderStatusSchema, uuidSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse, type Order } from "@/lib/types"
+import { QueryData } from '@supabase/supabase-js'
+import { type Updates } from "@/lib/supabase/server"
 
 // GET /api/orders/[id] - Get single order
 export async function GET(
@@ -11,7 +14,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     const user = await getCurrentUser(supabase)
     if (!user) {
       return NextResponse.json(
@@ -43,7 +46,9 @@ export async function GET(
       )
     }
 
-    const { data: order, error } = await query.single()
+    const orderQuery = query.maybeSingle()
+    type OrderRow = QueryData<typeof orderQuery>
+    const { data: order, error } = await orderQuery
 
     if (error || !order) {
       return NextResponse.json(
@@ -72,7 +77,7 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.ADMIN])) {
       return NextResponse.json(
@@ -106,17 +111,23 @@ export async function PUT(
 
     const { status, notes } = updateValidation.data
 
-    const { data: order, error } = await supabase
+    type OrderUpdate = Updates<'orders'>
+    const updateData: OrderUpdate = {
+      status,
+      updated_at: new Date().toISOString(),
+    }
+    
+    const updateQuery = supabase
       .from('orders')
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
-      .single()
+      .maybeSingle()
+    
+    type UpdatedOrderRow = QueryData<typeof updateQuery>
+    const { data: order, error } = await updateQuery
 
-    if (error) {
+    if (error || !order) {
       console.error('Order update error:', error)
       return NextResponse.json(
         { ok: false, message: "Failed to update order" },

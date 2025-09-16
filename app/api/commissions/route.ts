@@ -2,13 +2,15 @@ import { type NextRequest, NextResponse } from "next/server"
 export const runtime = 'nodejs'
 
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { ensureTypedClient } from "@/lib/supabase/types"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse } from "@/lib/types"
+import { type Inserts } from "@/lib/supabase/server"
 import * as z from "zod"
 
 const createCommissionSchema = z.z.object({
   orderId: z.z.string().uuid(),
-  influencerId: z.z.string().uuid().optional(),
+  influencerId: z.z.string().uuid(),
   supplierId: z.z.string().uuid(),
   productId: z.z.string().uuid(),
   amount: z.z.number().min(0),
@@ -57,7 +59,7 @@ export interface CommissionData {
 // GET /api/commissions - List commissions with filters
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     
     const user = await getCurrentUser(supabase)
     if (!user) {
@@ -213,7 +215,7 @@ export async function GET(request: NextRequest) {
 // POST /api/commissions - Create commission transaction
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     
     const user = await getCurrentUser(supabase)
     if (!user || !hasRole(user, [UserRole.ADMIN])) {
@@ -237,20 +239,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    type CommissionInsert = Inserts<'commissions'>
+    const insertData: CommissionInsert = {
+      order_id: validation.data.orderId,
+      influencer_id: validation.data.influencerId,
+      supplier_id: validation.data.supplierId,
+      product_id: validation.data.productId,
+      amount: validation.data.amount,
+      rate: validation.data.rate,
+      status: validation.data.status,
+      created_at: new Date().toISOString()
+    }
+    
     const { data: commission, error } = await supabase
       .from('commissions')
-      .insert({
-        order_id: validation.data.orderId,
-        influencer_id: validation.data.influencerId,
-        supplier_id: validation.data.supplierId,
-        product_id: validation.data.productId,
-        amount: validation.data.amount,
-        rate: validation.data.rate,
-        status: validation.data.status,
-        created_at: new Date().toISOString()
-      })
+      .insert(insertData)
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) {
       console.error('Commission creation error:', error)
@@ -260,7 +265,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log(`💰 [AUDIT] Admin ${user.id} created commission ${commission.id}`)
+    if (commission) {
+      const auditPayload = {
+        action: 'COMMISSION_CREATED',
+        actor_id: user.id,
+        resource_type: 'commission',
+        resource_id: commission.id,
+        metadata: {
+          amount: commission.amount,
+          influencer_id: commission.influencer_id,
+          supplier_id: commission.supplier_id,
+          product_id: commission.product_id,
+          order_id: commission.order_id
+        },
+        created_at: new Date().toISOString()
+      }
+      const { error: auditError } = await supabase.from('audit_logs' as any).insert(auditPayload as any)
+      if (auditError) {
+        console.error('Audit log insert failed:', auditError)
+      }
+    }
 
     return NextResponse.json({
       ok: true,

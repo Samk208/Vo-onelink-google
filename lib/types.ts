@@ -67,6 +67,12 @@ export interface CartItem {
   quantity: number
   image: string
   influencerHandle: string
+  category?: string
+  supplierId?: string
+  supplierName?: string
+  supplierVerified?: boolean
+  maxQuantity?: number
+  originalPrice?: number
 }
 
 export interface Order {

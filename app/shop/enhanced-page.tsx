@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useProducts } from "@/hooks/use-products"
-import { useCartStore } from "@/lib/store/cart"
+import { useCartStore, type CartItem } from "@/lib/store/cart"
 import { ProductCard } from "@/components/shop/product-card"
 import { EnhancedProductCard } from "@/components/shop/enhanced-product-card"
 import { ProductFilters, type ProductFilters as ProductFiltersType } from "@/components/shop/product-filters"
@@ -35,6 +35,7 @@ import {
   RefreshCw
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 export default function EnhancedShopPage() {
   const [filters, setFilters] = useState<ProductFiltersType>({
@@ -61,7 +62,27 @@ export default function EnhancedShopPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   
-  const { getTotalItems } = useCartStore()
+  const { getTotalItems, addItem } = useCartStore()
+
+  // Add to cart function
+  const addToCart = (product: any) => {
+    const cartItem: Omit<CartItem, 'quantity'> & { quantity?: number } = {
+      id: product.id,
+      title: product.title,
+      price: product.price,
+      originalPrice: product.original_price,
+      image: product.images?.[0] || '/placeholder.svg',
+      category: product.category,
+      supplierId: product.supplier_id || '',
+      supplierName: product.supplier?.name || 'Unknown Supplier',
+      supplierVerified: product.supplier?.verified || false,
+      maxQuantity: product.stock_count || 10,
+      quantity: 1
+    }
+    
+    addItem(cartItem)
+    toast.success(`${product.title} added to cart!`)
+  }
 
   // Fetch products directly using the configured client
   useEffect(() => {
@@ -468,6 +489,7 @@ export default function EnhancedShopPage() {
         product={quickViewProduct}
         isOpen={isQuickViewOpen}
         onClose={closeQuickView}
+        onAddToCart={addToCart}
       />
     </div>
   )

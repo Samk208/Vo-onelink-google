@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { ensureTypedClient } from "@/lib/supabase/types"
 import { updateProductSchema, uuidSchema } from "@/lib/validators"
 import { getCurrentUser, hasRole } from "@/lib/auth-helpers"
 import { UserRole, type ApiResponse, type Product } from "@/lib/types"
+import { QueryData } from '@supabase/supabase-js'
+import { type Updates } from "@/lib/supabase/server"
 
 // GET /api/products/[id] - Get single product
 export async function GET(
@@ -10,8 +13,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
-    const resolvedParams = await params
-    const productId = resolvedParams.id
+    const { id: productId } = await params
 
     const validation = uuidSchema.safeParse(productId)
     if (!validation.success) {
@@ -21,8 +23,8 @@ export async function GET(
       )
     }
 
-    const supabase = await createServerSupabaseClient()
-    const { data: product, error } = await supabase
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
+    const query = supabase
       .from('products')
       .select(`
         *,
@@ -33,7 +35,10 @@ export async function GET(
         )
       `)
       .eq('id', productId)
-      .single()
+      .maybeSingle()
+    
+    type ProductRow = QueryData<typeof query>
+    const { data: product, error } = await query
 
     if (error || !product) {
       return NextResponse.json(
@@ -61,10 +66,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
-    const resolvedParams = await params
-    const productId = resolvedParams.id
+    const { id: productId } = await params
 
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     
     // Get current user and check permissions
     const user = await getCurrentUser(supabase)
@@ -91,11 +95,14 @@ export async function PUT(
     }
 
     // Check if product exists and user has permission
-    const { data: existingProduct, error: fetchError } = await supabase
+    const existingQuery = supabase
       .from('products')
       .select('*')
       .eq('id', productId)
-      .single()
+      .maybeSingle()
+    
+    type ExistingProductRow = QueryData<typeof existingQuery>
+    const { data: existingProduct, error: fetchError } = await existingQuery
 
     if (fetchError || !existingProduct) {
       return NextResponse.json(
@@ -126,17 +133,20 @@ export async function PUT(
       )
     }
 
-    const updateData = updateValidation.data
+    const validatedUpdate = updateValidation.data
 
     // Check for duplicate SKU if SKU is being updated
-    if (updateData.sku && updateData.sku !== existingProduct.sku) {
-      const { data: duplicateProduct } = await supabase
+    if (validatedUpdate.sku && validatedUpdate.sku !== existingProduct.sku) {
+      const duplicateQuery = supabase
         .from('products')
         .select('id')
         .eq('supplier_id', existingProduct.supplier_id)
-        .eq('sku', updateData.sku)
+        .eq('sku', validatedUpdate.sku)
         .neq('id', productId)
-        .single()
+        .maybeSingle()
+      
+      type DuplicateProductRow = QueryData<typeof duplicateQuery>
+      const { data: duplicateProduct } = await duplicateQuery
 
       if (duplicateProduct) {
         return NextResponse.json(
@@ -152,35 +162,38 @@ export async function PUT(
 
     // Calculate final price if commission is updated
     const finalUpdateData: any = {
-      ...updateData,
+      ...validatedUpdate,
       updated_at: new Date().toISOString(),
     }
 
     // Map validation schema fields to database fields
-    if (updateData.stockCount !== undefined) {
-      finalUpdateData.stock_count = updateData.stockCount
-      finalUpdateData.in_stock = updateData.stockCount > 0
+    if (validatedUpdate.stockCount !== undefined) {
+      finalUpdateData.stock_count = validatedUpdate.stockCount
+      finalUpdateData.in_stock = validatedUpdate.stockCount > 0
     }
     
-    if (updateData.region !== undefined) {
-      finalUpdateData.region = updateData.region
+    if (validatedUpdate.region !== undefined) {
+      finalUpdateData.region = validatedUpdate.region
     }
     
-    if (updateData.images !== undefined) {
-      finalUpdateData.images = updateData.images
+    if (validatedUpdate.images !== undefined) {
+      finalUpdateData.images = validatedUpdate.images
     }
     
-    if (updateData.originalPrice !== undefined) {
-      finalUpdateData.original_price = updateData.originalPrice
+    if (validatedUpdate.originalPrice !== undefined) {
+      finalUpdateData.original_price = validatedUpdate.originalPrice
     }
     
-    if (updateData.sku !== undefined) {
-      finalUpdateData.sku = updateData.sku
+    if (validatedUpdate.sku !== undefined) {
+      finalUpdateData.sku = validatedUpdate.sku
     }
 
-    const { data: product, error } = await supabase
+    type ProductUpdate = Updates<'products'>
+    const productUpdate: ProductUpdate = finalUpdateData
+    
+    const updateQuery = supabase
       .from('products')
-      .update(finalUpdateData)
+      .update(productUpdate)
       .eq('id', productId)
       .select(`
         *,
@@ -190,9 +203,12 @@ export async function PUT(
           email
         )
       `)
-      .single()
+      .maybeSingle()
+    
+    type UpdatedProductRow = QueryData<typeof updateQuery>
+    const { data: product, error } = await updateQuery
 
-    if (error) {
+    if (error || !product) {
       console.error('Product update error:', error)
       return NextResponse.json(
         { ok: false, error: "Failed to update product" },
@@ -222,10 +238,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   try {
-    const resolvedParams = await params
-    const productId = resolvedParams.id
+    const { id: productId } = await params
 
-    const supabase = await createServerSupabaseClient()
+    const supabase = ensureTypedClient(await createServerSupabaseClient())
     
     // Get current user and check permissions
     const user = await getCurrentUser(supabase)
@@ -252,11 +267,14 @@ export async function DELETE(
     }
 
     // Check if product exists and user has permission
-    const { data: existingProduct, error: fetchError } = await supabase
+    const deleteQuery = supabase
       .from('products')
       .select('supplier_id')
       .eq('id', productId)
-      .single()
+      .maybeSingle()
+    
+    type DeleteProductRow = QueryData<typeof deleteQuery>
+    const { data: existingProduct, error: fetchError } = await deleteQuery
 
     if (fetchError || !existingProduct) {
       return NextResponse.json(
