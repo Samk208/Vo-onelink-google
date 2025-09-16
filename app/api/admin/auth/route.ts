@@ -13,12 +13,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ isAdmin: false, error: 'Not authenticated' }, { status: 401 })
     }
     
-    // Check if user has admin role
+    // Check if user has admin role (profiles extends auth.users)
     const { data: userData } = await supabase
-      .from('users')
+      .from('profiles')
       .select('role, name, email')
       .eq('id', user.id)
-      .single()
+      .maybeSingle<{ role: UserRole | null; name?: string | null; email?: string | null }>()
     
     if (!userData || userData.role !== UserRole.ADMIN) {
       return NextResponse.json({ isAdmin: false, error: 'Not admin' }, { status: 403 })

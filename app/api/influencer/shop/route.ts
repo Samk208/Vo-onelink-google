@@ -8,8 +8,6 @@ import { z } from "zod"
 const addProductSchema = z.object({
   productId: z.string().uuid(),
   customTitle: z.string().optional(),
-  // customDescription not in typed schema for influencer_shop_products
-  customDescription: z.string().optional(),
   salePrice: z.number().min(0).optional()
 })
 
@@ -127,15 +125,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Resolve products in the shop: supports either string[] of ids or JSON array of objects
+    type ProductOverride = { product_id: string; custom_title?: string; sale_price?: number; published?: boolean }
     let shopProductIds: string[] = []
-    let overridesById: Record<string, { custom_title?: string; sale_price?: number; published?: boolean }> = {}
+    const overridesById: Record<string, { custom_title?: string; sale_price?: number; published?: boolean }> = {}
 
     if (shop?.products && Array.isArray(shop.products)) {
-      if (typeof shop.products[0] === 'string') {
+      const first = shop.products[0] as unknown
+      if (typeof first === 'string') {
         shopProductIds = shop.products as string[]
-      } else {
-        // Assume shape: [{ product_id, custom_title?, sale_price?, published? }]
-        const arr = shop.products as Array<any>
+      } else if (first && typeof first === 'object') {
+        const arr = shop.products as ProductOverride[]
         shopProductIds = arr.map(p => p.product_id)
         for (const p of arr) {
           overridesById[p.product_id] = {
@@ -231,7 +230,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { productId, customTitle, customDescription, salePrice } = addProductSchema.parse(body)
+    const { productId, customTitle, salePrice } = addProductSchema.parse(body)
 
     // Validate product exists and is active
     const { data: product, error: productError } = await supabase
@@ -255,7 +254,8 @@ export async function POST(request: NextRequest) {
       .eq('influencer_id', user.id)
       .maybeSingle()
 
-    let newProducts: any[] = []
+    type ProductOverride = { product_id: string; custom_title?: string; sale_price?: number; published?: boolean }
+    let newProducts: Array<string | ProductOverride> = []
     if (shop?.products && Array.isArray(shop.products)) {
       if (typeof shop.products[0] === 'string') {
         const ids = shop.products as string[]
@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
         newProducts = [...ids, productId]
       } else {
         // JSON objects array
-        const arr = shop.products as Array<any>
+        const arr = shop.products as ProductOverride[]
         if (arr.some(p => p.product_id === productId)) {
           return NextResponse.json(
             { ok: false, error: "Product already in your shop" },
@@ -282,7 +282,7 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // No products yet
-      newProducts = [productId]
+      newProducts = [{ product_id: productId, custom_title: customTitle, sale_price: salePrice ?? product.price, published: true }]
     }
 
     const { error: updateError } = await supabase

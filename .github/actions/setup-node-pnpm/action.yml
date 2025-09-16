@@ -30,16 +30,16 @@ runs:
         version: ${{ inputs.pnpm-version }}
         run_install: false
 
+    - name: Configure pnpm store path
+      shell: bash
+      run: pnpm config set store-dir ~/.pnpm-store
+
     - name: Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}
         cache: 'pnpm'
         cache-dependency-path: 'pnpm-lock.yaml'
-
-    - name: Configure pnpm store path
-      shell: bash
-      run: pnpm config set store-dir ~/.pnpm-store
 
     - name: Cache pnpm store
       uses: actions/cache@v4

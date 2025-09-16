@@ -127,16 +127,16 @@ export async function POST(
       )
     }
 
-    // If verified, update user role
+    // If verified, update user role (write to profiles table)
     if (status === 'verified') {
-      type UserUpdate = Updates<'users'>
-      const userUpdateData: UserUpdate = {
+      type ProfileUpdate = Updates<'profiles'>
+      const userUpdateData: ProfileUpdate = {
         role: verificationRequest.role,
         updated_at: new Date().toISOString(),
       }
       
       const { error: userError } = await supabase
-        .from('users')
+        .from('profiles')
         .update(userUpdateData)
         .eq('id', verificationRequest.user_id)
 

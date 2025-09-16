@@ -266,7 +266,24 @@ export async function POST(request: NextRequest) {
     }
 
     if (commission) {
-      console.log(`💰 [AUDIT] Admin ${user.id} created commission ${commission.id}`)
+      const auditPayload = {
+        action: 'COMMISSION_CREATED',
+        actor_id: user.id,
+        resource_type: 'commission',
+        resource_id: commission.id,
+        metadata: {
+          amount: commission.amount,
+          influencer_id: commission.influencer_id,
+          supplier_id: commission.supplier_id,
+          product_id: commission.product_id,
+          order_id: commission.order_id
+        },
+        created_at: new Date().toISOString()
+      }
+      const { error: auditError } = await supabase.from('audit_logs' as any).insert(auditPayload as any)
+      if (auditError) {
+        console.error('Audit log insert failed:', auditError)
+      }
     }
 
     return NextResponse.json({

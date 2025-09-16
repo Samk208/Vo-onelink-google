@@ -33,15 +33,40 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       )
     }
 
-    // For now, just return success since brand_details table doesn't exist
-    // TODO: Create brand_details table or store in users table
-    console.log(`🏢 [AUDIT] User ${user.id} submitted brand details:`, validation.data)
+    // Persistence is behind an experimental feature flag until migrations are applied
+    if (process.env.EXPERIMENTAL_BRAND_PERSIST === 'true') {
+      try {
+        const payload = { ...validation.data, user_id: user.id, created_at: new Date().toISOString() }
+        const { error: insertError } = await supabase
+          .from('brand_details' as any)
+          .insert(payload as any)
 
-    return NextResponse.json({
-      ok: true,
-      data: null,
-      message: "Brand information submitted successfully"
-    } as OnboardingApiResponse<BrandDetails | null>)
+        if (insertError) {
+          console.error('Brand details insert error:', insertError)
+          return NextResponse.json(
+            { ok: false, error: 'Failed to persist brand details' },
+            { status: 500 }
+          )
+        }
+
+        return NextResponse.json({
+          ok: true,
+          data: null,
+          message: "Brand information submitted successfully"
+        } as OnboardingApiResponse<BrandDetails | null>)
+      } catch (e) {
+        console.error('Brand details persistence exception:', e)
+        return NextResponse.json(
+          { ok: false, error: 'Unexpected error while saving brand details' },
+          { status: 500 }
+        )
+      }
+    }
+
+    return NextResponse.json(
+      { ok: false, error: 'Brand details persistence is disabled. Enable EXPERIMENTAL_BRAND_PERSIST to store data.' },
+      { status: 503 }
+    )
   } catch (error) {
     console.error('Brand details error:', error)
     return NextResponse.json(

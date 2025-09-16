@@ -25,12 +25,12 @@ export async function adminAuthMiddleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
     }
     
-    // Check if user has admin role
+    // Check if user has admin role (profiles extends auth.users)
     const { data: userData } = await supabase
-      .from('users')
+      .from('profiles')
       .select('role')
       .eq('id', user.id)
-      .single()
+      .maybeSingle<{ role: UserRole | null }>()
     
     if (!userData || userData.role !== UserRole.ADMIN) {
       return NextResponse.redirect(new URL('/admin/login?error=Unauthorized access', request.url))

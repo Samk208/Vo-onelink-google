@@ -164,8 +164,19 @@ export const runtime = 'nodejs'  // Prevents Edge Runtime issues
 
 ### **🚀 DEPLOYMENT COMMAND:**
 ```bash
-# Test and deploy in one command
-pnpm typecheck && pnpm build && git add -A && git commit -m "feat: Complete implementation with document upload and database setup" && git push
+# 1) Typecheck and build (verify success before proceeding)
+pnpm typecheck && pnpm build
+
+# 2) Review changes (inspect working tree and staged diff)
+git status
+git diff --staged
+
+# 3) Stage and commit intentionally (adjust paths/message as needed)
+git add -A
+git commit -m "feat: Complete implementation with document upload and database setup"
+
+# 4) Push as a separate, explicit step
+git push
 ```
 
 ---

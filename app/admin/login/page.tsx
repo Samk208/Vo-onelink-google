@@ -36,12 +36,12 @@ export default async function AdminLogin({ searchParams }: AdminLoginProps) {
     }
     
     if (data.user) {
-      // Check if user is admin
+      // Check if user is admin (profiles extends auth.users)
       const { data: userData } = await supabase
-        .from('users')
+        .from('profiles')
         .select('role')
         .eq('id', data.user.id)
-        .single()
+        .maybeSingle<{ role: UserRole | null }>()
       
       if (userData?.role !== UserRole.ADMIN) {
         await supabase.auth.signOut()

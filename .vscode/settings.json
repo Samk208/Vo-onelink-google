@@ -74,7 +74,6 @@
   ],
   // SYSTEM PATHS
   "window.openFoldersInNewWindow": "on",
-  "python.defaultInterpreterPath": "C:\\Python311\\python.exe",
   // AI MODELS
   "codesnippetsai.defaultModel": "ChatGPT",
   "@azure.argTenant": "",

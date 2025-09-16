@@ -1,5 +1,4 @@
 import { Suspense } from 'react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function AdminLayout({
   children,

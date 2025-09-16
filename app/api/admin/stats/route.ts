@@ -18,21 +18,14 @@ export async function GET(request: NextRequest) {
       .from('users')
       .select('role')
       .eq('id', user.id)
-      .single()
+      .maybeSingle<{ role: UserRole | null }>()
     
     if (!userData || userData.role !== UserRole.ADMIN) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Get platform statistics
-    const [
-      { count: totalUsers },
-      { count: totalProducts },
-      { count: totalOrders },
-      { count: totalShops },
-      { count: activeUsers },
-      { count: activeProducts }
-    ] = await Promise.all([
+    // Get platform statistics with per-query failure isolation
+    const platformResults = await Promise.allSettled([
       supabase.from('users').select('*', { count: 'exact', head: true }),
       supabase.from('products').select('*', { count: 'exact', head: true }),
       supabase.from('orders').select('*', { count: 'exact', head: true }),
@@ -41,19 +34,44 @@ export async function GET(request: NextRequest) {
       supabase.from('products').select('*', { count: 'exact', head: true }).eq('active', true)
     ])
 
+    const safeCount = (r: any): number => {
+      if (!r) return 0
+      // Supabase head count responses have shape { data: null, count: number, error?: PostgrestError }
+      if (typeof r.count === 'number') return r.count
+      if (r.data && typeof r.data.count === 'number') return r.data.count
+      return 0
+    }
+
+    const [
+      totalUsersRes,
+      totalProductsRes,
+      totalOrdersRes,
+      totalShopsRes,
+      activeUsersRes,
+      activeProductsRes
+    ] = platformResults
+
+    const totalUsers = totalUsersRes.status === 'fulfilled' ? safeCount(totalUsersRes.value) : 0
+    const totalProducts = totalProductsRes.status === 'fulfilled' ? safeCount(totalProductsRes.value) : 0
+    const totalOrders = totalOrdersRes.status === 'fulfilled' ? safeCount(totalOrdersRes.value) : 0
+    const totalShops = totalShopsRes.status === 'fulfilled' ? safeCount(totalShopsRes.value) : 0
+    const activeUsers = activeUsersRes.status === 'fulfilled' ? safeCount(activeUsersRes.value) : 0
+    const activeProducts = activeProductsRes.status === 'fulfilled' ? safeCount(activeProductsRes.value) : 0
+
     // Get recent activity (last 7 days)
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-    const [
-      { count: recentUsers },
-      { count: recentOrders },
-      { count: recentProducts }
-    ] = await Promise.all([
+    const recentResults = await Promise.allSettled([
       supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString()),
       supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString()),
       supabase.from('products').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString())
     ])
+
+    const [recentUsersRes, recentOrdersRes, recentProductsRes] = recentResults
+    const recentUsers = recentUsersRes.status === 'fulfilled' ? safeCount(recentUsersRes.value) : 0
+    const recentOrders = recentOrdersRes.status === 'fulfilled' ? safeCount(recentOrdersRes.value) : 0
+    const recentProducts = recentProductsRes.status === 'fulfilled' ? safeCount(recentProductsRes.value) : 0
 
     return NextResponse.json({
       stats: {

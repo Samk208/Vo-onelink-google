@@ -15,26 +15,30 @@ export default async function AdminDashboard() {
     redirect('/admin/login')
   }
   
-  // Verify admin role
+  // Verify admin role (profiles extends auth.users)
   const { data: userData } = await supabase
-    .from('users')
+    .from('profiles')
     .select('role, name, email')
     .eq('id', user.id)
-    .single()
+    .maybeSingle<{ role: UserRole | null; name?: string | null; email?: string | null }>()
   
   if (!userData || userData.role !== UserRole.ADMIN) {
     redirect('/admin/login?error=Unauthorized access')
   }
 
-  // Get basic stats with error handling
-  const statsResults = await Promise.all([
-    supabase.from('users').select('*', { count: 'exact', head: true }).then(result => result.count ?? 0).catch(() => 0),
-    supabase.from('products').select('*', { count: 'exact', head: true }).then(result => result.count ?? 0).catch(() => 0),
-    supabase.from('orders').select('*', { count: 'exact', head: true }).then(result => result.count ?? 0).catch(() => 0),
-    supabase.from('shops').select('*', { count: 'exact', head: true }).then(result => result.count ?? 0).catch(() => 0)
+  // Get basic stats with per-query failure isolation
+  const countResults = await Promise.allSettled([
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('products').select('*', { count: 'exact', head: true }),
+    supabase.from('orders').select('*', { count: 'exact', head: true }),
+    supabase.from('shops').select('*', { count: 'exact', head: true })
   ])
 
-  const [totalUsers, totalProducts, totalOrders, totalShops] = statsResults
+  const safeCount = (r: any) => (r && typeof r.count === 'number' ? r.count : 0)
+  const totalUsers = countResults[0].status === 'fulfilled' ? safeCount(countResults[0].value) : 0
+  const totalProducts = countResults[1].status === 'fulfilled' ? safeCount(countResults[1].value) : 0
+  const totalOrders = countResults[2].status === 'fulfilled' ? safeCount(countResults[2].value) : 0
+  const totalShops = countResults[3].status === 'fulfilled' ? safeCount(countResults[3].value) : 0
 
   async function signOut() {
     'use server'
@@ -56,7 +60,7 @@ export default async function AdminDashboard() {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                Welcome, {userData.name || userData.email}
+                Welcome, {userData?.name ?? user.email ?? 'Admin'}
               </span>
               <form action={signOut}>
                 <Button variant="outline" size="sm" type="submit">
