@@ -259,8 +259,8 @@ importers:
         specifier: ^3.3.3
         version: 3.6.2
       supabase:
-        specifier: ^2.39.2
-        version: 2.39.2
+        specifier: ^2.40.7
+        version: 2.40.7
       tailwindcss:
         specifier: ^4.1.9
         version: 4.1.9
@@ -5732,8 +5732,8 @@ packages:
     engines: {node: '>=14'}
     hasBin: true
 
-  supabase@2.39.2:
-    resolution: {integrity: sha512-/LDPMDIDmuDwj3UsKVw+wA+uHF7QhEF8xgJnKpnk1vqVdr+lA6xRSwWQzgaNuwPj5YPt6+78JKp+wzKziTsRVw==}
+  supabase@2.40.7:
+    resolution: {integrity: sha512-59lNW92axdufcEUdctNQpEc4k6uTEpzIUbqVXNSdWEDS/A/2yLGLxPOQQ0OBCsaJRhrVMmYXlRwgJK2PAoVQnA==}
     engines: {npm: '>=8'}
     hasBin: true
 
@@ -12683,7 +12683,7 @@ snapshots:
     dependencies:
       commander: 10.0.1
 
-  supabase@2.39.2:
+  supabase@2.40.7:
     dependencies:
       bin-links: 5.0.0
       https-proxy-agent: 7.0.6
