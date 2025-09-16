@@ -12,11 +12,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Harden runner (egress audit)
-      uses: step-security/harden-runner@v2
-      with:
-        egress-policy: audit
-
     - name: Checkout (for pnpm store key context)
       uses: actions/checkout@v4
 

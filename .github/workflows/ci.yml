@@ -73,6 +73,11 @@ jobs:
       # Replace <CHECKOUT_SHA>, <PNPM_SETUP_SHA>, <SETUP_NODE_SHA> with the exact immutable commit IDs.
       # See: https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions
       - uses: actions/checkout@v4 # pinned to stable tag
+      - name: Harden runner (egress audit)
+        uses: step-security/harden-runner@v2.10.1
+        continue-on-error: true
+        with:
+          egress-policy: audit
       - name: Setup Node.js and pnpm
         uses: ./.github/actions/setup-node-pnpm
         with:
@@ -220,6 +225,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Harden runner (egress audit)
+        uses: step-security/harden-runner@v2.10.1
+        continue-on-error: true
+        with:
+          egress-policy: audit
       - name: Setup Node.js and pnpm
         uses: ./.github/actions/setup-node-pnpm
         with:
@@ -265,7 +275,6 @@ jobs:
         uses: ./.github/actions/setup-node-pnpm
         with:
           node-version: ${{ env.NODE_VERSION }}
-          pnpm-version: ${{ env.PNPM_VERSION }}
           install: 'true'
       - name: Show pnpm version
         run: pnpm -v
