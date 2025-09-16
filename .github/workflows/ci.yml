@@ -10,7 +10,7 @@ on:
 env:
   # Centralize tool versions for consistency and easy bumping
   NODE_VERSION: '20'
-  PNPM_VERSION: '9'
+  PNPM_VERSION: '9.15.0'
   NEXT_TELEMETRY_DISABLED: '1'
 
 concurrency:
@@ -253,28 +253,12 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          run_install: false
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup-node-pnpm
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
-      - name: Configure pnpm store path
-        run: pnpm config set store-dir ~/.pnpm-store
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      - name: Install deps (frozen)
-        env:
-          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
-        run: pnpm install --frozen-lockfile --prefer-offline
+          pnpm-version: ${{ env.PNPM_VERSION }}
+          install: 'true'
       - name: Show pnpm version
         run: pnpm -v
       - name: Cache Next.js build cache
@@ -311,28 +295,12 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          run_install: false
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup-node-pnpm
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
-      - name: Configure pnpm store path
-        run: pnpm config set store-dir ~/.pnpm-store
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      - name: Install deps (frozen)
-        env:
-          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
-        run: pnpm install --frozen-lockfile --prefer-offline
+          pnpm-version: ${{ env.PNPM_VERSION }}
+          install: 'true'
       - name: Show pnpm version
         run: pnpm -v
       - name: Decide DB smoke run
@@ -381,15 +349,12 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          run_install: false
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js and pnpm (no install)
+        uses: ./.github/actions/setup-node-pnpm
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
+          pnpm-version: ${{ env.PNPM_VERSION }}
+          install: 'false'
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -651,26 +616,12 @@ jobs:
       PW_SUITE: ${{ matrix.suite }}
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          run_install: false
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup-node-pnpm
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
-      - name: Configure pnpm store path
-        run: pnpm config set store-dir ~/.pnpm-store
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-      - name: Install deps
-        run: pnpm install --frozen-lockfile --prefer-offline --strict-peer-dependencies
+          pnpm-version: ${{ env.PNPM_VERSION }}
+          install: 'true'
       - name: Show pnpm version
         run: pnpm -v
 
