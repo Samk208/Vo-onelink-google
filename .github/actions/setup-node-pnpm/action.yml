@@ -38,8 +38,8 @@ runs:
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node-version }}
-        cache: 'pnpm'
-        cache-dependency-path: 'pnpm-lock.yaml'
+        # Disable built-in cache; we manage pnpm store caching explicitly below
+        check-latest: false
 
     - name: Cache pnpm store
       uses: actions/cache@v4
