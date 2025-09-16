@@ -10,7 +10,7 @@ on:
 env:
   # Centralize tool versions for consistency and easy bumping
   NODE_VERSION: '20'
-  PNPM_VERSION: '9'
+  PNPM_VERSION: '9.15.0'
   NEXT_TELEMETRY_DISABLED: '1'
 
 concurrency:
@@ -81,8 +81,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
+          check-latest: false
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
@@ -122,8 +121,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: 'pnpm-lock.yaml'
+          check-latest: false
       - name: Configure pnpm store path
         run: pnpm config set store-dir ~/.pnpm-store
       - name: Cache pnpm store
