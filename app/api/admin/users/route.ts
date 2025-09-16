@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const { searchParams } = new URL(request.url)
+    // Use Next.js provided URL for robustness in build/runtime contexts
+    const { searchParams } = request.nextUrl
     const validation = paginationSchema.safeParse(Object.fromEntries(searchParams))
     
     if (!validation.success) {
@@ -96,3 +97,8 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+// Ensure Node.js runtime to avoid Edge runtime limitations with certain libraries
+export const runtime = 'nodejs'
+// Mark dynamic to avoid over-aggressive static analysis on params
+export const dynamic = 'force-dynamic'
