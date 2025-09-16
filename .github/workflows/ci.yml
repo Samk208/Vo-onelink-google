@@ -142,6 +142,10 @@ jobs:
         uses: supabase/setup-cli@v1
         with:
           version: latest
+      - name: Install dos2unix (for line ending normalization)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y dos2unix
       - name: Decide Supabase checks
         id: decide_supabase
         env:
@@ -196,7 +200,12 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
-          # Extra safety: trim potential CRLF/whitespace from the token and login explicitly
+          set -euo pipefail
+          # Configure git for consistent text handling in this job
+          git config core.autocrlf false
+          git config core.eol lf
+
+          # Trim potential CRLF/whitespace from the token and login explicitly
           TOKEN_TRIMMED=$(printf "%s" "$SUPABASE_ACCESS_TOKEN" | tr -d '\r' | awk '{$1=$1};1')
           supabase --version
           supabase login --token "$TOKEN_TRIMMED"
@@ -204,10 +213,29 @@ jobs:
           unset SUPABASE_ACCESS_TOKEN
           # Link the project explicitly to ensure CLI uses correct context
           supabase link --project-ref "$SUPABASE_PROJECT_ID" --debug || true
+
+          # Generate fresh types to a temp file
           supabase gen types typescript --project-id "$SUPABASE_PROJECT_ID" > supabase.types.generated.ts
-          if ! diff -u lib/supabase/database.types.ts supabase.types.generated.ts; then
-            echo "::error title=Supabase types drift detected::Run 'supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > lib/supabase/database.types.ts' and commit."
+
+          # Normalize line endings to LF and strip UTF-8 BOM if present
+          dos2unix -q supabase.types.generated.ts || true
+          sed -i '1s/^\xEF\xBB\xBF//' supabase.types.generated.ts || true
+          # Also normalize the tracked file copy for comparison only
+          cp lib/supabase/database.types.ts lib/supabase/database.types.normalized.ts
+          dos2unix -q lib/supabase/database.types.normalized.ts || true
+          sed -i '1s/^\xEF\xBB\xBF//' lib/supabase/database.types.normalized.ts || true
+
+          # Perform a whitespace-insensitive text diff
+          if ! diff -u -w -B lib/supabase/database.types.normalized.ts supabase.types.generated.ts > types.diff; then
+            echo "::error title=Supabase types drift detected::Types differ beyond whitespace/line-endings."
+            echo "Run 'npx supabase gen types typescript --project-id $SUPABASE_PROJECT_ID > lib/supabase/database.types.ts' and commit." 
+            echo "--- Diff (normalized) ---"
+            sed -n '1,400p' types.diff || true
+            rm -f lib/supabase/database.types.normalized.ts types.diff
             exit 1
+          else
+            echo "Supabase types are in sync (normalized)."
+            rm -f lib/supabase/database.types.normalized.ts types.diff
           fi
       - name: Skip Supabase checks (no secrets)
         if: ${{ steps.decide_supabase.outputs.run_supabase_checks != 'true' }}
