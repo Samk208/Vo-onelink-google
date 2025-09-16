@@ -44,7 +44,11 @@ export default function GoogleTranslate() {
             document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=.${host}; path=/;`
           }
           // Clear localStorage preference
-          try { localStorage.removeItem(preferredKey) } catch {}
+          try { localStorage.removeItem(preferredKey) } catch (e) {
+            if (process.env.NODE_ENV !== 'production') {
+              console.error('Failed to remove localStorage preference:', e)
+            }
+          }
           // Reload page to show original English content
           window.location.reload()
           return
@@ -59,7 +63,11 @@ export default function GoogleTranslate() {
         }
 
         // Persist user preference so we can re-apply if Google banner is closed/reset
-        try { localStorage.setItem(preferredKey, lang) } catch {}
+        try { localStorage.setItem(preferredKey, lang) } catch (e) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('Failed to set localStorage preference:', e)
+          }
+        }
 
         // Update the hidden select, if present
         const select = document.querySelector<HTMLSelectElement>('.goog-te-combo')
@@ -75,7 +83,9 @@ export default function GoogleTranslate() {
           window.location.reload()
         }
       } catch (e) {
-        // no-op
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('Error in setTranslateLanguage:', e)
+        }
       }
     }
     const getLang = (): 'auto' | 'en' | 'ko' | 'zh-CN' => {
@@ -100,7 +110,11 @@ export default function GoogleTranslate() {
         if (current !== preferred) {
           setLang(preferred)
         }
-      } catch {}
+      } catch (e) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('Error in sync interval:', e)
+        }
+      }
     }, 2000)
 
     // Also re-apply when tab becomes visible again
@@ -108,7 +122,11 @@ export default function GoogleTranslate() {
       try {
         const preferred = (localStorage.getItem(preferredKey) as 'en' | 'ko' | 'zh-CN' | null)
         if (preferred && getLang() !== preferred) setLang(preferred)
-      } catch {}
+      } catch (e) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('Error in visibility change handler:', e)
+        }
+      }
     }
     document.addEventListener('visibilitychange', onVis)
 

@@ -93,16 +93,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
       - name: Install deps (frozen)
-        id: install_frozen_lint
-        continue-on-error: true
         env:
           PNPM_STRICT_PEER_DEPENDENCIES: 'false'
         run: pnpm install --frozen-lockfile --prefer-offline
-      - name: Install deps (fallback, mutable lockfile)
-        if: ${{ steps.install_frozen_lint.outcome == 'failure' }}
-        env:
-          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
-        run: pnpm install --no-frozen-lockfile --prefer-offline
       - name: Show pnpm version
         run: pnpm -v
       - name: Cache Playwright browsers
@@ -141,16 +134,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
       - name: Install deps (frozen)
-        id: install_frozen_build
-        continue-on-error: true
         env:
           PNPM_STRICT_PEER_DEPENDENCIES: 'false'
         run: pnpm install --frozen-lockfile --prefer-offline
-      - name: Install deps (fallback, mutable lockfile)
-        if: ${{ steps.install_frozen_build.outcome == 'failure' }}
-        env:
-          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
-        run: pnpm install --no-frozen-lockfile --prefer-offline
       - name: Show pnpm version
         run: pnpm -v
 
@@ -260,16 +246,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
       - name: Install deps (frozen)
-        id: install_frozen_build
-        continue-on-error: true
         env:
           PNPM_STRICT_PEER_DEPENDENCIES: 'false'
         run: pnpm install --frozen-lockfile --prefer-offline
-      - name: Install deps (fallback, mutable lockfile)
-        if: ${{ steps.install_frozen_build.outcome == 'failure' }}
-        env:
-          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
-        run: pnpm install --no-frozen-lockfile --prefer-offline
       - name: Show pnpm version
         run: pnpm -v
       - name: Cache Next.js build cache
@@ -320,16 +299,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
       - name: Install deps (frozen)
-        id: install_frozen_db_smoke
-        continue-on-error: true
         env:
           PNPM_STRICT_PEER_DEPENDENCIES: 'false'
         run: pnpm install --frozen-lockfile --prefer-offline
-      - name: Install deps (fallback, mutable lockfile)
-        if: ${{ steps.install_frozen_db_smoke.outcome == 'failure' }}
-        env:
-          PNPM_STRICT_PEER_DEPENDENCIES: 'false'
-        run: pnpm install --no-frozen-lockfile --prefer-offline
       - name: Show pnpm version
         run: pnpm -v
       - name: Decide DB smoke run
@@ -861,8 +833,8 @@ jobs:
           name: api-tests
           path: artifacts/api-tests
           retention-days: 7
-      - name: Print server logs on failure
-        if: ${{ failure() }}
+      - name: Coverage gate check
+        if: ${{ always() }}
         run: |
           set -euo pipefail
           if [ -f coverage/coverage-summary.json ]; then
@@ -871,6 +843,16 @@ jobs:
             awk -v c="$TOTAL" 'BEGIN{ if (c+0 < 80) { exit 1 } }'
           else
             echo "No coverage summary found; skipping coverage gate. Add unit/integration tests to enable this gate."
+          fi
+      - name: Print server logs on failure
+        if: ${{ failure() }}
+        run: |
+          set -euo pipefail
+          if [ -f .next-app.log ]; then
+            echo "=== Server logs ==="
+            tail -100 .next-app.log
+          else
+            echo "No server log file found."
           fi
       - name: Technical debt budget placeholder
         run: |

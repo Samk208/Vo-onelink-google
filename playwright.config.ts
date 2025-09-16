@@ -4,8 +4,8 @@ export default defineConfig({
   testDir: './tests',
   timeout: 30_000,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
-  workers: 1,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? '50%' : undefined,
   reporter: [
     ['list'],
     ['json', { outputFile: 'test-results.json' }],

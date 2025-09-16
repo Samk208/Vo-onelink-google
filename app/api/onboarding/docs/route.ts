@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getCurrentUser } from "@/lib/auth-helpers"
 import { z } from 'zod'
 import { supabaseAdmin, type Inserts } from "@/lib/supabase/admin"
+import path from 'path'
 
 // Force Node.js runtime
 export const runtime = 'nodejs'
@@ -115,9 +116,23 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
+    // Sanitize filename to prevent path traversal and unsafe characters
+    const sanitizeFilename = (filename: string): string => {
+      // Get basename to remove any path separators
+      const basename = path.basename(filename)
+      // Remove or replace unsafe characters, keep only alphanumeric, dots, dashes, underscores
+      const sanitized = basename.replace(/[^a-zA-Z0-9._-]/g, '_')
+      // Truncate to reasonable length
+      return sanitized.substring(0, 100)
+    }
+    
+    // Validate and sanitize inputs
+    const sanitizedDocumentType = documentType.replace(/[^a-zA-Z0-9_-]/g, '_')
+    const sanitizedOriginalName = sanitizeFilename(file.name)
+    
     // Generate unique filename
     const timestamp = Date.now()
-    const filename = `${user.id}/${documentType}_${timestamp}_${file.name}`
+    const filename = `${user.id}/${sanitizedDocumentType}_${timestamp}_${sanitizedOriginalName}`
     const storagePath = `verification-documents/${filename}`
 
     // Upload to Supabase Storage

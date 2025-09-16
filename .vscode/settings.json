@@ -25,24 +25,7 @@
   "database-client.formatSql": true,
   "database-client.pageSize": 100,
   "database-client.keepAlive": true,
-  // Optional: Pre-configured (disabled) Supabase connection template for Database Client.
-  // Fill in host/user/password and set enable=true to activate. Do NOT commit secrets.
-  "database-client.connections": [
-    {
-      "name": "Supabase Staging - vo-onelink-google",
-      "enable": true,
-      "client": "postgresql",
-      "server": "db.mqnwtfbdgcuvqvnloidt.supabase.co",
-      "port": 5432,
-      "database": "postgres",
-      "user": "postgres",
-      "password": "", // You'll need to enter your database password here
-      "ssl": true,
-      "options": {
-        "schema": "public"
-      }
-    }
-  ],
+  // Database connections are configured in settings.local.json (not committed to repo)
   // THUNDER CLIENT CONFIGURATION
   "thunder-client.saveToWorkspace": true,
   "thunder-client.followRedirects": true,
@@ -97,5 +80,10 @@
   "@azure.argTenant": "",
   // WORKBENCH
   "workbench.editor.enablePreview": false,
-  "diffEditor.maxComputationTime": 0
+  "diffEditor.maxComputationTime": 0,
+  // PLAYWRIGHT EXTENSION CONFIGURATION
+  "playwright.enableTrace": true,
+  "playwright.showTrace": false,
+  "playwright.reuseBrowser": false,
+  "playwright.showBrowser": true
 }

@@ -135,29 +135,32 @@ async function handleCheckoutSessionCompleted(session: any) {
 
     // Process each item for stock updates and commission logging
     for (const item of items) {
-      // Update stock count directly on products table
-      const { data: product } = await supabaseAdmin
-        .from('products')
-        .select('stock_count')
-        .eq('id', item.productId)
-        .maybeSingle()
+      // Use atomic RPC function to update stock count safely
+      const { data: stockUpdateResult, error: rpcError } = await supabaseAdmin
+        .rpc('update_product_stock' as any, {
+          product_id_param: item.productId,
+          quantity_to_subtract: item.quantity ?? 0
+        }) as { data: Array<{
+          id: string;
+          stock_count: number;
+          in_stock: boolean;
+          success: boolean;
+          error_message: string | null;
+        }> | null; error: any }
 
-      if (product) {
-        const currentStock = product.stock_count ?? 0
-        const newStock = Math.max(0, currentStock - (item.quantity ?? 0))
-        const { error: stockUpdateError } = await supabaseAdmin
-          .from('products')
-          .update({ 
-            stock_count: newStock,
-            in_stock: newStock > 0,
-            updated_at: new Date().toISOString(),
-          } as any)
-          .eq('id', item.productId)
-
-        if (stockUpdateError) {
-          console.error(`Failed to update stock for product ${item.productId}:`, stockUpdateError)
-        }
+      if (rpcError) {
+        console.error(`RPC error updating stock for product ${item.productId}:`, rpcError)
+        continue
       }
+
+      const result = stockUpdateResult?.[0]
+      if (!result?.success) {
+        console.error(`Failed to update stock for product ${item.productId}: ${result?.error_message || 'Unknown error'}`)
+        // Continue processing other items even if one fails
+        continue
+      }
+
+      console.log(`Successfully updated stock for product ${item.productId}: ${result.stock_count} remaining, in_stock: ${result.in_stock}`)
 
       // Determine influencer attribution and effective sale price from metadata
       const influencerId: string | null = metadataInfluencerId ?? null

@@ -63,9 +63,9 @@ export async function GET(request: NextRequest) {
         totalShops: totalShops || 0,
         activeUsers: activeUsers || 0,
         activeProducts: activeProducts || 0,
-        recentUsers: recentUsers || 0,
-        recentOrders: recentOrders || 0,
-        recentProducts: recentProducts || 0
+        sevenDayUsers: recentUsers || 0,
+        sevenDayOrders: recentOrders || 0,
+        sevenDayProducts: recentProducts || 0
       }
     })
   } catch (error) {

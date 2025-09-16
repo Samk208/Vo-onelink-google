@@ -26,18 +26,15 @@ export default async function AdminDashboard() {
     redirect('/admin/login?error=Unauthorized access')
   }
 
-  // Get basic stats
-  const [
-    { count: totalUsers },
-    { count: totalProducts },
-    { count: totalOrders },
-    { count: totalShops }
-  ] = await Promise.all([
-    supabase.from('users').select('*', { count: 'exact', head: true }),
-    supabase.from('products').select('*', { count: 'exact', head: true }),
-    supabase.from('orders').select('*', { count: 'exact', head: true }),
-    supabase.from('shops').select('*', { count: 'exact', head: true })
+  // Get basic stats with error handling
+  const statsResults = await Promise.all([
+    supabase.from('users').select('*', { count: 'exact', head: true }).then(result => result.count ?? 0).catch(() => 0),
+    supabase.from('products').select('*', { count: 'exact', head: true }).then(result => result.count ?? 0).catch(() => 0),
+    supabase.from('orders').select('*', { count: 'exact', head: true }).then(result => result.count ?? 0).catch(() => 0),
+    supabase.from('shops').select('*', { count: 'exact', head: true }).then(result => result.count ?? 0).catch(() => 0)
   ])
+
+  const [totalUsers, totalProducts, totalOrders, totalShops] = statsResults
 
   async function signOut() {
     'use server'

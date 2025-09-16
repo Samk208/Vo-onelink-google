@@ -5,6 +5,7 @@
     "rangav.vscode-thunder-client",
     "dbaeumer.vscode-eslint",
     "usernamehw.errorlens",
-    "esbenp.prettier-vscode"
+    "esbenp.prettier-vscode",
+    "ms-playwright.playwright"
   ]
 }

@@ -42,115 +42,125 @@ Then I asked:
 
 Is there complete sql file for me to upload and not have to edit any code
 
-# 🗄️ COMPLETE SQL FILE FOR SUPABASE
+# 🗄️ Database Setup
 
-Yes! Here's a complete SQL file that will create ALL your tables, functions, policies, and even seed data. Just run this once in Supabase SQL Editor:# ✅ YES! Complete SQL File Created
+For complete database setup instructions, see: **[docs/setup/database-setup.md](docs/setup/database-setup.md)**
 
-I've created a **complete SQL setup file** at `supabase/setup-complete.sql` that includes:
-
-## 📦 What's Included:
-
-1. **All Tables** - users, products, orders, shops, commissions, verification tables
-2. **All Functions** - decrement_stock, update timestamps
-3. **All Indexes** - for performance
-4. **All Triggers** - automatic timestamp updates
-5. **Storage Buckets** - documents, products, avatars
-6. **RLS Policies** - security rules for all tables
-7. **Sample Data** - 8 products, 4 users, 1 shop with products
-
-## 🚀 How to Use It:
-
-### **Step 1: Run in Supabase**
-1. Go to your [Supabase Dashboard](https://app.supabase.com)
-2. Click **SQL Editor**
-3. Click **New query**
-4. Copy ALL content from `supabase/setup-complete.sql`
-5. Paste it in the SQL editor
-6. Click **Run** (or press Ctrl+Enter)
-
-### **Step 2: That's It!**
-You're done! The SQL file will:
-- ✅ Create all tables
-- ✅ Set up all relationships
-- ✅ Create storage buckets
-- ✅ Add sample products (8 items)
-- ✅ Create test users
-- ✅ Set up security policies
-
-## 🎯 After Running the SQL:
-
-Your app will have:
-- **8 sample products** ready to display in the shop
-- **Test users** you can use for testing:
-  - supplier@example.com (Supplier account)
-  - influencer@example.com (Influencer account)
-  - customer@example.com (Customer account)
-  - admin@example.com (Admin account)
-
-## 📝 NO CODE CHANGES NEEDED!
-
-With this SQL file, you don't need to:
-- ❌ Edit any TypeScript files
-- ❌ Manually create tables
-- ❌ Set up policies one by one
-- ❌ Add products manually
-
-Everything is included in one SQL file!
-
-## ⚡ Quick Deploy Steps Now:
-
-1. **Run the SQL file** in Supabase (1 minute)
-2. **Add those 2 import lines** to the shop files (30 seconds)
-3. **Push to git** and deploy (2 minutes)
-
-That's literally all you need to do! The SQL file handles everything else. 🚀
-
+The setup documentation includes:
+- Step-by-step SQL setup instructions
+- Complete verification checklist
+- Troubleshooting guide
+- Sample data information
 
 My next prompt:
 
 Good did you also check on enhanced onboarding or singup workflow, with document upload features, seperate for brand & influencer, why are they not visible at the frontend, and they work well with our current signup/onboarding sysem, the code should already have been created, check, it had some errors
 
 
-Let me check the enhanced onboarding and signup workflow with document upload features. You're right, there should be separate flows for brand & influencer. Let me investigate why they're not showing up at the frontend.Great! I can see the sign-up page does redirect to `/auth/onboarding?role=brand` or `/auth/onboarding?role=influencer` after signup. Now let me check the onboarding page:Let me check the component files to see if they have the DocumentUploader integrated:Now let me check the BrandKYBStep to see how document upload is handled:I can see the issue now. The document upload feature is implemented in the individual step components but they're using a simulated upload function instead of the actual DocumentUploader component. Let me check if the DocumentUploader component is being imported or used:Now I understand the issue! The DocumentUploader component exists but it's not being used in the onboarding workflow. The KYC/KYB steps are using simulated uploads instead of the real DocumentUploader. Let me create a comprehensive fix to integrate everything properly and create a handover document:## 📊 COMPLETE ANALYSIS - Onboarding Workflow Status
+Let me check the enhanced onboarding and signup workflow with document upload features. You're right, there should be separate flows for brand & influencer. Let me investigate why they're not showing up at the frontend.Great! I can see the sign-up page does redirect to `/auth/onboarding?role=brand` or `/auth/onboarding?role=influencer` after signup. Now let me check the onboarding page:Let me check the component files to see if they have the DocumentUploader integrated:Now let me check the BrandKYBStep to see how document upload is handled:I can see the issue now. The document upload feature is implemented in the individual step components but they're using a simulated upload function instead of the actual DocumentUploader component. Let me check if the DocumentUploader component is being imported or used:Now I understand the issue! The DocumentUploader component exists but it's not being used in the onboarding workflow. The KYC/KYB steps are using simulated uploads instead of the real DocumentUploader. Let me create a comprehensive fix to integrate everything properly and create a handover document:# Technical Specification: Onboarding Workflow Integration
 
-I've thoroughly investigated the enhanced onboarding workflow. Here's what I found:
+## 1. Current State Summary
 
-### ✅ **What's Working:**
-1. **Sign-up Flow** - Properly redirects to `/auth/onboarding` with role parameter
-2. **Multi-step Onboarding** - 5-step process exists and functions
-3. **DocumentUploader Component** - Fully functional component exists
-4. **Document Upload API** - Backend API is ready and working
+### 1.1 Functional Components
+- Sign-up flow with role-based redirection to `/auth/onboarding`
+- Multi-step onboarding process (5 steps) 
+- DocumentUploader component (fully functional)
+- Document upload API endpoints
 
-### ❌ **The Problem:**
-The **DocumentUploader component is NOT integrated** into the onboarding workflow. The KYC/KYB steps are using **simulated/fake uploads** instead of the real DocumentUploader component.
+### 1.2 System Architecture
+- Frontend: Next.js App Router with TypeScript
+- Backend: Supabase with document storage
+- Authentication: Supabase Auth with role-based access
 
-### 🔧 **What You Need To Do:**
+## 2. Problem Statement
 
-#### **Option 1: Quick Fix (5 minutes)**
-1. Create the two fixed component files I provided:
-   - `InfluencerKYCStep.fixed.tsx`
-   - `BrandKYBStep.fixed.tsx`
-2. Update the imports in `app/auth/onboarding/page.tsx` to use the `.fixed` versions
+**Issue**: DocumentUploader component is not integrated into the onboarding workflow
 
-#### **Option 2: Manual Fix (10 minutes)**
-1. Open `app/auth/onboarding/components/InfluencerKYCStep.tsx`
-2. Import `DocumentUploader` component
-3. Replace all the simulated upload code with the real DocumentUploader
-4. Do the same for `BrandKYBStep.tsx`
+**Impact**: KYC/KYB steps use simulated uploads instead of actual document processing
 
-### 📁 **Files Created for You:**
-1. **`ONBOARDING_WORKFLOW_FIX.md`** - Complete guide with code to fix the onboarding
-2. **`FINAL_DEPLOYMENT_HANDOVER.md`** - Overall deployment checklist
-3. **`supabase/setup-complete.sql`** - Complete database setup
+**Root Cause**: Missing component imports and integration in onboarding step components
 
-### 🎯 **Final Steps for Complete Deployment:**
+## 3. Proposed Solutions
 
-1. **Fix the shop page imports** (2 minutes)
-2. **Fix the onboarding components** (5 minutes using the provided code)
-3. **Run the SQL file in Supabase** (1 minute)
-4. **Set Vercel environment variables** (3 minutes)
-5. **Deploy to Vercel** (2 minutes)
+### 3.1 Quick Implementation (Recommended)
 
-**Total time needed: ~15 minutes**
+**Files to Modify:**
+- `app/auth/onboarding/components/InfluencerKYCStep.tsx`
+- `app/auth/onboarding/components/BrandKYBStep.tsx`
+- `app/auth/onboarding/page.tsx`
 
-The good news is that 95% of the work is done. You just need to connect the DocumentUploader component to the onboarding flow, and everything will work perfectly! 🚀
+**Implementation Steps:**
+1. Import DocumentUploader component in both step files
+2. Replace simulated upload functions with DocumentUploader integration
+3. Update component state management for document handling
+4. Test document upload flow end-to-end
+
+### 3.2 Manual Implementation
+
+**Step-by-step Changes:**
+1. **File**: `app/auth/onboarding/components/InfluencerKYCStep.tsx`
+   - Add import: `import { DocumentUploader } from '@/components/onboarding/DocumentUploader'`
+   - Replace mock upload handlers with DocumentUploader component
+   - Update state management for document URLs
+
+2. **File**: `app/auth/onboarding/components/BrandKYBStep.tsx`
+   - Add import: `import { DocumentUploader } from '@/components/onboarding/DocumentUploader'`
+   - Replace mock upload handlers with DocumentUploader component
+   - Update state management for document URLs
+
+## 4. Testing Requirements
+
+### 4.1 Unit Tests
+- [ ] DocumentUploader component integration tests
+- [ ] Upload state management validation
+- [ ] Error handling verification
+
+### 4.2 Integration Tests
+- [ ] End-to-end onboarding flow with document upload
+- [ ] Role-based document requirements validation
+- [ ] Supabase storage integration verification
+
+### 4.3 User Acceptance Tests
+- [ ] Brand onboarding with KYB documents
+- [ ] Influencer onboarding with KYC documents
+- [ ] Document upload progress and error states
+
+## 5. Migration Plan
+
+### 5.1 Pre-deployment
+1. Backup current onboarding components
+2. Implement changes in development environment
+3. Run comprehensive test suite
+4. Validate document storage functionality
+
+### 5.2 Deployment Steps
+1. Deploy component changes
+2. Monitor error logs for upload issues
+3. Verify document storage in Supabase
+4. Test user flows in production
+
+### 5.3 Rollback Plan
+- Revert to previous component versions if critical issues arise
+- Maintain backup of working simulated upload functionality
+
+## 6. Success Criteria
+
+- [ ] DocumentUploader component successfully integrated
+- [ ] Real document uploads functional for both user types
+- [ ] No regression in existing onboarding flow
+- [ ] Documents properly stored in Supabase storage
+- [ ] Error handling and user feedback working correctly
+
+## 7. Dependencies
+
+- DocumentUploader component (existing)
+- Supabase storage configuration
+- Document upload API endpoints
+- Role-based access controls
+
+## 8. Estimated Timeline
+
+- Implementation: 10-15 minutes
+- Testing: 15-20 minutes  
+- Deployment: 5 minutes
+- **Total**: 30-40 minutes

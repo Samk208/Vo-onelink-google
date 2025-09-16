@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Database error:', error)
       return NextResponse.json(
-        { error: 'Failed to fetch products', details: error.message },
+        { error: 'Failed to fetch products' },
         { status: 500 }
       )
     }
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('API Route Error:', error)
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch products' },
       { status: 500 }
     )
   }

@@ -44,19 +44,18 @@ async function testConnection() {
         console.log('✅ Connection successful!')
         console.log('📊 Session status:', data.session ? 'Authenticated' : 'Not authenticated')
 
-        // Test database access (try to get a simple table info)
-        const { data: tables, error: tablesError } = await supabase
-            .from('information_schema.tables')
-            .select('table_name')
-            .eq('table_schema', 'public')
-            .limit(5)
+        // Test database access (try to query a real table)
+        const { data: shops, error: tablesError } = await supabase
+            .from('shops')
+            .select('id')
+            .limit(1)
 
         if (tablesError) {
             console.log('⚠️  Database access test failed:', tablesError.message)
             console.log('This might be normal if RLS is enabled and you\'re not authenticated.')
         } else {
             console.log('✅ Database access successful!')
-            console.log('📋 Available tables:', tables?.length || 0)
+            console.log('📋 Shops found:', shops?.length || 0)
         }
 
         return true

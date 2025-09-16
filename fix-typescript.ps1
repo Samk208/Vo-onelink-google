@@ -20,9 +20,8 @@ function Fix-SingleToMaybe {
     $content = Get-Content $FilePath -Raw
     if ($content -match '\.single\(\)') {
         $newContent = $content -replace '\.single\(\)', '.maybeSingle()'
-        Set-Content -Path $FilePath -Value $newContent -NoNewline
+        Set-Content -Path $FilePath -Value $newContent
         Write-Host "  ✓ Fixed .single() in $($FilePath)" -ForegroundColor Cyan
-        $script:fixedCount++
         return $true
     }
     return $false
@@ -38,7 +37,7 @@ function Fix-TypeAssertions {
     # Remove QueryResult type assertions
     if ($content -match 'as QueryResult<') {
         $newContent = $content -replace ' as QueryResult<[^>]+>', ''
-        Set-Content -Path $FilePath -Value $newContent -NoNewline
+        Set-Content -Path $FilePath -Value $newContent
         Write-Host "  ✓ Removed QueryResult assertion in $($FilePath)" -ForegroundColor Cyan
         $modified = $true
     }
@@ -46,7 +45,7 @@ function Fix-TypeAssertions {
     # Remove QueryData type declarations that are unused
     if ($content -match 'type \w+Query = QueryData<typeof query>') {
         $newContent = $content -replace 'type \w+Query = QueryData<typeof query>\r?\n\s*', ''
-        Set-Content -Path $FilePath -Value $newContent -NoNewline
+        Set-Content -Path $FilePath -Value $newContent
         Write-Host "  ✓ Removed unused QueryData type in $($FilePath)" -ForegroundColor Cyan
         $modified = $true
     }
