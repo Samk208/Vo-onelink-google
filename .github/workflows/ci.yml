@@ -10,7 +10,7 @@ on:
 env:
   # Centralize tool versions for consistency and easy bumping
   NODE_VERSION: '20'
-  PNPM_VERSION: '9.15.0'
+  PNPM_VERSION: '9'
   NEXT_TELEMETRY_DISABLED: '1'
 
 concurrency:
