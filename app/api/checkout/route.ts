@@ -104,13 +104,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Stripe Checkout Session
-    const session = await stripe.checkout.sessions.create({
+    const sessionPayload: any = {
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/order/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/cart`,
-      customer_email: user.email,
+      // Only include customer_email if available
+      ...(user.email ? { customer_email: user.email } : {}),
       metadata: {
         userId: user.id,
         orderData: JSON.stringify({
@@ -123,7 +124,8 @@ export async function POST(request: NextRequest) {
       shipping_address_collection: {
         allowed_countries: ['US', 'CA', 'GB', 'AU', 'JP', 'KR'],
       },
-    })
+    }
+    const session = await stripe.checkout.sessions.create(sessionPayload)
 
     return NextResponse.json({
       ok: true,

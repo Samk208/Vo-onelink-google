@@ -10,6 +10,7 @@
 import fs from 'fs'
 import path from 'path'
 import dotenv from 'dotenv'
+import crypto from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 
 // Prefer .env.local (Next.js convention), fallback to .env
@@ -57,14 +58,18 @@ async function checkUserAdminView() {
 }
 
 function cryptoRandomUUID() {
-  // minimal uuid generator for Node 18+ has crypto.randomUUID, but fallback simple
-  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID()
-  const tpl = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-  return tpl.replace(/[xy]/g, c => {
-    const r = (Math.random() * 16) | 0
-    const v = c === 'x' ? r : (r & 0x3) | 0x8
-    return v.toString(16)
-  })
+  // Prefer native crypto.randomUUID (Node 16.17+/18+)
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+
+  // Secure v4 UUID fallback using randomFillSync per RFC 4122
+  const bytes = new Uint8Array(16)
+  crypto.randomFillSync(bytes)
+  // Set version (4) and variant (RFC 4122)
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
 async function run() {

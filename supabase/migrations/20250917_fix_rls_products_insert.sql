@@ -11,7 +11,10 @@ CREATE POLICY "Products insert by supplier or admin"
 ON public.products
 FOR INSERT
 WITH CHECK (
-  auth.uid() = supplier_id
+  (
+    auth.uid() = supplier_id
+    AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'supplier')
+  )
   OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
 );
 
@@ -20,11 +23,17 @@ CREATE POLICY "Products update by supplier or admin"
 ON public.products
 FOR UPDATE
 USING (
-  auth.uid() = supplier_id
+  (
+    auth.uid() = supplier_id
+    AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'supplier')
+  )
   OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
 )
 WITH CHECK (
-  auth.uid() = supplier_id
+  (
+    auth.uid() = supplier_id
+    AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'supplier')
+  )
   OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
 );
 
@@ -33,6 +42,9 @@ CREATE POLICY "Products delete by supplier or admin"
 ON public.products
 FOR DELETE
 USING (
-  auth.uid() = supplier_id
+  (
+    auth.uid() = supplier_id
+    AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'supplier')
+  )
   OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
 );

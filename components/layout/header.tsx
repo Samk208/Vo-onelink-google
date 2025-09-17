@@ -255,18 +255,21 @@ export function Header() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="flex items-center space-x-2" aria-label="User menu">
                       <img
-                        src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${user.email}`}
-                        alt={user.name || user.email}
+                        src={
+                          user.avatar ||
+                          `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.email || 'User')}`
+                        }
+                        alt={user.name || user.email || 'User'}
                         className="h-6 w-6 rounded-full"
                       />
-                      <span className="text-sm font-medium">{user.name || user.email.split("@")[0]}</span>
+                      <span className="text-sm font-medium">{user.name ?? (user.email ? user.email.split("@")[0] : 'User')}</span>
                       <ChevronDownIcon />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <div className="px-3 py-2">
-                      <p className="text-sm font-medium">{user.name || user.email.split("@")[0]}</p>
-                      <p className="text-xs text-gray-500">{user.email}</p>
+                      <p className="text-sm font-medium">{user.name ?? (user.email ? user.email.split("@")[0] : 'User')}</p>
+                      <p className="text-xs text-gray-500">{user.email ?? ''}</p>
                       <p className="text-xs text-amber-600 capitalize">{user.role}</p>
                     </div>
                     <DropdownMenuSeparator />
@@ -348,12 +351,15 @@ export function Header() {
                   <div className="flex flex-col space-y-3 px-3">
                     <div className="flex items-center space-x-3 pb-3">
                       <img
-                        src={user.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${user.email}`}
-                        alt={user.name || user.email}
+                        src={
+                          user.avatar ||
+                          `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user.name || user.email || 'User')}`
+                        }
+                        alt={user.name || user.email || 'User'}
                         className="h-8 w-8 rounded-full"
                       />
                       <div>
-                        <p className="text-sm font-medium">{user.name || user.email.split("@")[0]}</p>
+                        <p className="text-sm font-medium">{user.name ?? (user.email ? user.email.split("@")[0] : 'User')}</p>
                         <p className="text-xs text-amber-600 capitalize">{user.role}</p>
                       </div>
                     </div>
