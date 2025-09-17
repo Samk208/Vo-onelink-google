@@ -59,11 +59,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     console.log('Supabase auth successful, fetching user profile...')
-    // Get user profile from database
+    // Get auth user id then fetch profile from view
+    const { data: { user: authUser }, error: getUserError } = await supabase.auth.getUser()
+    if (getUserError || !authUser) {
+      console.error('Failed to get authenticated user:', getUserError)
+      return NextResponse.json(
+        createAuthErrorResponse('Authentication state error. Please try again.'),
+        { status: 500 }
+      )
+    }
+
     const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
+      .from('user_admin_view')
+      .select('id, email, name, role, verified, created_at, updated_at')
+      .eq('id', authUser.id)
       .maybeSingle()
 
     if (userError) {

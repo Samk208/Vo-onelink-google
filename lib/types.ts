@@ -20,7 +20,7 @@ export interface ApiError {
 
 export interface User {
   id: string
-  email: string
+  email?: string
   name: string
   role: UserRole
   avatar?: string

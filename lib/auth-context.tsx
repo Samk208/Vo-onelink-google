@@ -22,8 +22,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Use proper type inference with query
       const query = supabase
-        .from('users')
-        .select('*')
+        .from('profiles')
+        .select('id, name, role, avatar, verified, created_at, updated_at')
         .eq('id', userId)
         .maybeSingle()
       
@@ -40,7 +40,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return {
         id: (data as any).id,
-        email: (data as any).email,
         name: (data as any).name,
         role: (data as any).role as UserRole,
         avatar: (data as any).avatar,

@@ -59,7 +59,7 @@ export async function middleware(req: NextRequest) {
 
   // Get user role from the 'users' table with proper type inference
   const query = supabase
-    .from('users')
+    .from('profiles')
     .select('role')
     .eq('id', session.user.id)
     .maybeSingle()

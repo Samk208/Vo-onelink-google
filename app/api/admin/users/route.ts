@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     const searchQuery = searchParams.get('search')
 
     let query = supabase
-      .from('users')
+      .from('user_admin_view')
       .select('id, email, name, role, verified, created_at, updated_at', { count: 'exact' })
 
     // Apply filters
@@ -102,3 +102,4 @@ export async function GET(request: NextRequest) {
 export const runtime = 'nodejs'
 // Mark dynamic to avoid over-aggressive static analysis on params
 export const dynamic = 'force-dynamic'
+

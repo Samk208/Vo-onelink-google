@@ -58,14 +58,14 @@ export async function GET(
       )
     }
 
-    // Fetch influencer basic public info from users table (typed schema)
-    const { data: influencerUser, error: userError } = await supabase
-      .from('users')
+    // Fetch influencer basic public info from profiles table
+    const { data: influencerProfile, error: profileError } = await supabase
+      .from('profiles')
       .select('id, name, avatar, verified')
       .eq('id', shop.influencer_id)
       .maybeSingle()
 
-    if (userError || !influencerUser) {
+    if (profileError || !influencerProfile) {
       return NextResponse.json(
         { ok: false, error: "Influencer user not found" },
         { status: 404 }
@@ -106,10 +106,10 @@ export async function GET(
     // Format influencer data (limited to available fields)
     const formattedInfluencer = {
       handle: shop.handle,
-      name: influencerUser.name,
+      name: influencerProfile.name,
       // bio/banner/socialLinks not in current typed schema; keep undefined
-      avatar: influencerUser.avatar ?? undefined,
-      verified: influencerUser.verified ?? false,
+      avatar: influencerProfile.avatar ?? undefined,
+      verified: influencerProfile.verified ?? false,
       followers: '0',
     }
 
@@ -171,3 +171,4 @@ export async function GET(
     )
   }
 }
+

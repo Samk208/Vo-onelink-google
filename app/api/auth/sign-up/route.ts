@@ -16,7 +16,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // Test supabaseAdmin connection
     try {
-      const { data, error } = await supabaseAdmin.from('users').select('count').limit(1)
+      const { data, error } = await supabaseAdmin.from('profiles').select('id', { count: 'exact', head: true })
       if (error) {
         console.error('Supabase admin connection test failed:', error)
         return NextResponse.json(

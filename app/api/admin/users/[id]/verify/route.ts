@@ -59,7 +59,7 @@ export async function PUT(
 
     // Check if user exists with proper type inference
     const fetchQuery = supabase
-      .from('users')
+      .from('user_admin_view')
       .select('id, email, name, role')
       .eq('id', id)
       .maybeSingle()
@@ -73,15 +73,13 @@ export async function PUT(
       )
     }
 
-    // Update user verification status with proper type inference
-    type UserUpdate = Updates<'users'>
-    const updateData: UserUpdate = {
+    // Update user verification status in profiles table
+    const updateData = {
       verified,
       updated_at: new Date().toISOString(),
     }
-    
-    const { data: updatedUser, error: updateError } = await supabase
-      .from('users')
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from('profiles')
       .update(updateData)
       .eq('id', id)
       .select('id, verified, updated_at')
@@ -89,7 +87,7 @@ export async function PUT(
     
 
 
-    if (updateError || !updatedUser) {
+    if (updateError || !updatedProfile) {
       console.error('User verification error:', updateError)
       return NextResponse.json(
         { ok: false, message: "Failed to update user verification" },
@@ -101,10 +99,10 @@ export async function PUT(
     console.log(`Admin ${user.email} ${verified ? 'verified' : 'unverified'} user ${targetUser.email}${notes ? ` with notes: ${notes}` : ''}`)
 
     const result: VerifyUserResult = {
-      userId: updatedUser.id,
-      verified: updatedUser.verified,
+      userId: updatedProfile.id,
+      verified: updatedProfile.verified,
       notes,
-      updatedAt: updatedUser.updated_at,
+      updatedAt: updatedProfile.updated_at,
     }
 
     return NextResponse.json({

@@ -33,14 +33,14 @@ export async function GET() {
       }, { status: 500 })
     }
 
-    // Test 3: Check users table (for foreign key relationship)
+    // Test 3: Check profiles table (typed schema)
     const { data: users, error: usersError } = await supabaseAdmin
-      .from('users')
-      .select('id, name, role')
+      .from('profiles')
+      .select('id, name, role, verified')
       .limit(3)
 
     if (usersError) {
-      console.warn('Users table access error:', usersError)
+      console.warn('user_admin_view access error:', usersError)
     }
 
     // Test 4: Check table structure - remove problematic RPC call
@@ -60,11 +60,11 @@ export async function GET() {
       },
       tables: {
         products: products?.length || 0,
-        users: users?.length || 0
+        profiles: users?.length || 0
       },
       issues: [
         ...(count === 0 ? ['No products in database'] : []),
-        ...(usersError ? [`Users table error: ${usersError.message}`] : []),
+        ...(usersError ? [`profiles error: ${usersError.message}`] : []),
       ]
     })
 

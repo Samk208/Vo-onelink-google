@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     
     // Verify admin role
     const { data: userData } = await supabase
-      .from('users')
+      .from('profiles')
       .select('role')
       .eq('id', user.id)
       .maybeSingle<{ role: UserRole | null }>()
@@ -26,11 +26,11 @@ export async function GET(request: NextRequest) {
 
     // Get platform statistics with per-query failure isolation
     const platformResults = await Promise.allSettled([
-      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }),
       supabase.from('products').select('*', { count: 'exact', head: true }),
       supabase.from('orders').select('*', { count: 'exact', head: true }),
       supabase.from('shops').select('*', { count: 'exact', head: true }),
-      supabase.from('users').select('*', { count: 'exact', head: true }).eq('verified', true),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('verified', true),
       supabase.from('products').select('*', { count: 'exact', head: true }).eq('active', true)
     ])
 
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
     const recentResults = await Promise.allSettled([
-      supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString()),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString()),
       supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString()),
       supabase.from('products').select('*', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo.toISOString())
     ])
