@@ -14,6 +14,7 @@ import { config as dotenvConfig } from 'dotenv'
 import fs from 'fs'
 import path from 'path'
 import { createClient } from '@supabase/supabase-js'
+import crypto from 'crypto'
 
 // Load env
 const root = process.cwd()
@@ -36,6 +37,24 @@ function ok(m) { console.log(`✅ ${m}`) }
 function info(m) { console.log(`ℹ️  ${m}`) }
 function fail(m, e) { console.error(`❌ ${m}`, e?.message || e || '') }
 
+// Determine sample user password from env or generate a secure fallback
+const SAMPLE_PASSWORD = (() => {
+  if (process.env.SAMPLE_PASSWORD && process.env.SAMPLE_PASSWORD.length >= 12) {
+    return process.env.SAMPLE_PASSWORD
+  }
+  // Generate a strong random password: 24 chars base64url
+  const bytes = crypto.randomBytes(18) // 24 chars when base64url
+  const b64 = bytes.toString('base64')
+  // base64url safe
+  const base = b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+  // ensure a mix of chars
+  return `SeEd_${base}`
+})()
+
+if (process.env.NODE_ENV !== 'production') {
+  console.log(`🔐 SAMPLE_PASSWORD in use: ${SAMPLE_PASSWORD}`)
+}
+
 async function ensureUserByEmail(email, role, name) {
   // Try to find via admin view first
   let id = null
@@ -51,7 +70,7 @@ async function ensureUserByEmail(email, role, name) {
     // Create user
     const { data, error } = await admin.auth.admin.createUser({
       email,
-      password: 'P@ssw0rd1234',
+      password: SAMPLE_PASSWORD,
       email_confirm: true,
       user_metadata: { name, role },
     })

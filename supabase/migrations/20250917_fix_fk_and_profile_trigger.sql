@@ -69,20 +69,21 @@ SELECT
 FROM public.profiles p
 JOIN auth.users au ON au.id = p.id;
 
--- Restrict read access: DO NOT expose to anon; allow only authenticated and service/admin roles
+-- Restrict read access: DO NOT expose to anon/authenticated; allow only admin-scoped roles
 DO $$
 BEGIN
-  -- Authenticated end-users may need limited admin data in secure contexts
+  -- Revoke any broad grants
   BEGIN
-    EXECUTE 'GRANT SELECT ON public.user_admin_view TO authenticated';
+    EXECUTE 'REVOKE SELECT ON public.user_admin_view FROM authenticated';
+  EXCEPTION WHEN OTHERS THEN NULL; END;
+  BEGIN
+    EXECUTE 'REVOKE SELECT ON public.user_admin_view FROM anon';
   EXCEPTION WHEN OTHERS THEN NULL; END;
 
-  -- Grant to PostgREST role if present (backend API role)
+  -- Grant only to admin roles (create roles out of band if needed)
   BEGIN
-    EXECUTE 'GRANT SELECT ON public.user_admin_view TO postgrest';
+    EXECUTE 'GRANT SELECT ON public.user_admin_view TO admin';
   EXCEPTION WHEN OTHERS THEN NULL; END;
-
-  -- Optional dedicated app_admin role
   BEGIN
     EXECUTE 'GRANT SELECT ON public.user_admin_view TO app_admin';
   EXCEPTION WHEN OTHERS THEN NULL; END;
