@@ -151,6 +151,14 @@ export default function EnhancedShopPage() {
                   product.images || 
                   ["https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500"]
 
+    // Deterministic hash for review counts to avoid hydration mismatch
+    const stableHash = (s: string) => {
+      let h = 0
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
+      return Math.abs(h)
+    }
+    const reviewCount = 10 + (stableHash(String(product.id || product.title || 'p')) % 191) // 10..200
+
     return {
       id: product.id,
       title: product.title,
@@ -164,7 +172,7 @@ export default function EnhancedShopPage() {
       in_stock: product.in_stock !== false, // Default to true if not specified
       active: product.active !== false, // Default to true if not specified
       rating: 4.5, // Default rating
-      review_count: Math.floor(Math.random() * 100) + 10, // Random review count
+      review_count: reviewCount,
       supplier: {
         id: product.supplier_id || '',
         name: 'TechGear Supplier', // Default supplier name for now
