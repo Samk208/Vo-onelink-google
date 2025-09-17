@@ -1,73 +1,117 @@
 -- Tighten products RLS to require supplier role (or admin) for writes
 
--- Remove previous write policies to replace with role-aware versions
-DROP POLICY IF EXISTS "Products insert by supplier or admin" ON public.products;
-DROP POLICY IF EXISTS "Products update by supplier or admin" ON public.products;
-DROP POLICY IF EXISTS "Products delete by supplier or admin" ON public.products;
+-- Consolidation note:
+-- This migration is idempotent and non-destructive. It aligns policies to the
+-- final role-aware form without dropping existing ones. If the policies already
+-- exist (e.g., created by 20250917_fix_rls_products_insert.sql), we ALTER them;
+-- otherwise we CREATE them. This avoids churn in the migration history.
 
--- INSERT: only suppliers can insert their own products, or admins can insert any
-CREATE POLICY "Products insert by SUPPLIER or ADMIN (role-aware)"
-ON public.products
-FOR INSERT
-WITH CHECK (
-  (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role = 'supplier'
-    )
-    AND auth.uid() = supplier_id
-  )
-  OR EXISTS (
-    SELECT 1 FROM public.profiles p
-    WHERE p.id = auth.uid() AND p.role = 'admin'
-  )
-);
+DO $$
+BEGIN
+  -- INSERT policy: ensure role-aware WITH CHECK
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'products'
+      AND policyname = 'Products insert by supplier or admin'
+  ) THEN
+    EXECUTE $$
+      ALTER POLICY "Products insert by supplier or admin" ON public.products
+      WITH CHECK (
+        (
+          auth.uid() = supplier_id
+          AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'supplier')
+        )
+        OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+      )
+    $$;
+  ELSE
+    EXECUTE $$
+      CREATE POLICY "Products insert by supplier or admin" ON public.products
+      FOR INSERT
+      WITH CHECK (
+        (
+          auth.uid() = supplier_id
+          AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'supplier')
+        )
+        OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+      )
+    $$;
+  END IF;
 
--- UPDATE: supplier can update own rows, admin can update any
-CREATE POLICY "Products update by SUPPLIER or ADMIN (role-aware)"
-ON public.products
-FOR UPDATE
-USING (
-  (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role = 'supplier'
-    )
-    AND auth.uid() = supplier_id
-  )
-  OR EXISTS (
-    SELECT 1 FROM public.profiles p
-    WHERE p.id = auth.uid() AND p.role = 'admin'
-  )
-)
-WITH CHECK (
-  (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role = 'supplier'
-    )
-    AND auth.uid() = supplier_id
-  )
-  OR EXISTS (
-    SELECT 1 FROM public.profiles p
-    WHERE p.id = auth.uid() AND p.role = 'admin'
-  )
-);
+  -- UPDATE policy: ensure role-aware USING and WITH CHECK
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'products'
+      AND policyname = 'Products update by supplier or admin'
+  ) THEN
+    EXECUTE $$
+      ALTER POLICY "Products update by supplier or admin" ON public.products
+      USING (
+        (
+          auth.uid() = supplier_id
+          AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'supplier')
+        )
+        OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+      )
+      WITH CHECK (
+        (
+          auth.uid() = supplier_id
+          AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'supplier')
+        )
+        OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+      )
+    $$;
+  ELSE
+    EXECUTE $$
+      CREATE POLICY "Products update by supplier or admin" ON public.products
+      FOR UPDATE
+      USING (
+        (
+          auth.uid() = supplier_id
+          AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'supplier')
+        )
+        OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+      )
+      WITH CHECK (
+        (
+          auth.uid() = supplier_id
+          AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'supplier')
+        )
+        OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+      )
+    $$;
+  END IF;
 
--- DELETE: supplier can delete own rows, admin can delete any
-CREATE POLICY "Products delete by SUPPLIER or ADMIN (role-aware)"
-ON public.products
-FOR DELETE
-USING (
-  (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role = 'supplier'
-    )
-    AND auth.uid() = supplier_id
-  )
-  OR EXISTS (
-    SELECT 1 FROM public.profiles p
-    WHERE p.id = auth.uid() AND p.role = 'admin'
-  )
-);
+  -- DELETE policy: ensure role-aware USING
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'products'
+      AND policyname = 'Products delete by supplier or admin'
+  ) THEN
+    EXECUTE $$
+      ALTER POLICY "Products delete by supplier or admin" ON public.products
+      USING (
+        (
+          auth.uid() = supplier_id
+          AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'supplier')
+        )
+        OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+      )
+    $$;
+  ELSE
+    EXECUTE $$
+      CREATE POLICY "Products delete by supplier or admin" ON public.products
+      FOR DELETE
+      USING (
+        (
+          auth.uid() = supplier_id
+          AND EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'supplier')
+        )
+        OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+      )
+    $$;
+  END IF;
+END$$;
