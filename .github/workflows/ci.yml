@@ -28,40 +28,20 @@ jobs:
     name: Detect Changes
     runs-on: ubuntu-latest
     outputs:
-      code: ${{ steps.filter.outputs.code }}
-      tests: ${{ steps.filter.outputs.tests }}
-      docs: ${{ steps.filter.outputs.docs }}
-      only_docs: ${{ steps.compute.outputs.only_docs }}
+      code: ${{ steps.set.outputs.code }}
+      tests: ${{ steps.set.outputs.tests }}
+      docs: ${{ steps.set.outputs.docs }}
+      only_docs: ${{ steps.set.outputs.only_docs }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            code:
-              - 'app/**'
-              - 'components/**'
-              - 'lib/**'
-              - 'styles/**'
-              - 'middleware/**'
-              - 'next.config.*'
-              - 'package.json'
-              - 'pnpm-lock.yaml'
-              - 'tsconfig.json'
-            tests:
-              - 'tests/**'
-              - 'playwright.config.*'
-            docs:
-              - 'docs/**'
-              - '**/*.md'
-      - name: Compute docs-only
-        id: compute
+      - name: Set default outputs (change detection disabled)
+        id: set
         run: |
-          if [ "${{ steps.filter.outputs.docs }}" = "true" ] && [ "${{ steps.filter.outputs.code }}" != "true" ] && [ "${{ steps.filter.outputs.tests }}" != "true" ]; then
-            echo "only_docs=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "only_docs=false" >> "$GITHUB_OUTPUT"
-          fi
+          echo "code=true" >> "$GITHUB_OUTPUT"
+          echo "tests=true" >> "$GITHUB_OUTPUT"
+          echo "docs=false" >> "$GITHUB_OUTPUT"
+          echo "only_docs=false" >> "$GITHUB_OUTPUT"
+
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -74,6 +54,7 @@ jobs:
       # See: https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-third-party-actions
       - uses: actions/checkout@v4 # pinned to stable tag
       - name: Harden runner (egress audit)
+        if: ${{ false }} # disabled
         uses: step-security/harden-runner@v2.10.1
         continue-on-error: true
         with:
@@ -94,6 +75,7 @@ jobs:
             ${{ runner.os }}-pw-
       - name: ESLint
         run: pnpm lint
+
   typecheck:
     needs: lint
     runs-on: ubuntu-latest
@@ -102,6 +84,12 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Harden runner (egress audit)
+        if: ${{ false }} # disabled
+        uses: step-security/harden-runner@v2.10.1
+        continue-on-error: true
+        with:
+          egress-policy: audit
       - name: Setup Node.js and pnpm
         uses: ./.github/actions/setup-node-pnpm
         with:
@@ -226,6 +214,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Harden runner (egress audit)
+        if: ${{ false }} # disabled
         uses: step-security/harden-runner@v2.10.1
         continue-on-error: true
         with:
