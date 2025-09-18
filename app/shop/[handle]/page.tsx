@@ -9,13 +9,22 @@ interface PageProps {
 
 // Fetch influencer shop data from our API route
 async function fetchShopData(handle: string) {
-  // Relative fetch works on the server in Next.js App Router
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ''}/api/shop/${handle}`, {
-    // Always fetch fresh shop data
-    cache: 'no-store',
-  }).catch(() => null)
+  // Build endpoint using server-only env if provided; fall back to relative path
+  const base = process.env.SHOP_SERVICE_URL ?? process.env.BASE_URL ?? ''
+  const endpoint = base ? `${base}/api/shop/${handle}` : `/api/shop/${handle}`
 
-  if (!res || !res.ok) return null
+  let res: Response
+  try {
+    res = await fetch(endpoint, {
+      cache: 'no-store',
+    })
+  } catch (err) {
+    // Surface server-side fetch failures clearly during SSR
+    console.error(`Failed to fetch shop data for handle="${handle}" from ${endpoint}:`, err)
+    throw err
+  }
+
+  if (!res.ok) return null
   const json = await res.json()
   if (!json?.ok || !json?.data) return null
 
@@ -31,7 +40,24 @@ async function fetchShopData(handle: string) {
     socialLinks: json.data.influencer.socialLinks ?? {},
   }
 
-  const products = (json.data.products ?? []).map((p: any) => ({
+  // API product shape returned by /api/shop/[handle]
+  interface ApiProduct {
+    id: string | number
+    customTitle?: string
+    title?: string
+    price?: number
+    originalPrice?: number
+    image?: string
+    badges?: unknown[]
+    category?: string
+    region?: string | string[]
+    inStock?: boolean
+    stockCount?: number
+    rating?: number
+    reviews?: number
+  }
+
+  const products = (json.data.products ?? []).map((p: ApiProduct) => ({
     id: String(p.id),
     title: p.customTitle || p.title || 'Untitled',
     price: Number(p.price ?? 0),

@@ -6,10 +6,26 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.local' });
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Server-only and safety guards to prevent accidental client exposure or prod runs
+if (typeof window !== 'undefined') {
+  throw new Error('This seed script must not run in the browser. Aborting.');
+}
+
+// Optional: block in production unless explicitly allowed
+if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PROD_SEED !== 'true') {
+  throw new Error('Seeding is blocked in production. Set ALLOW_PROD_SEED=true to override (not recommended).');
+}
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error('Missing env: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. Create .env.local and set both values.');
+}
+
+// IMPORTANT: Never export this client from server-only modules to client bundles.
+// Use anon key for non-admin reads, and service role ONLY for privileged seeding/cron.
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // Rich product data with multiple images per product
 const productsData = [

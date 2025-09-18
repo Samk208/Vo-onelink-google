@@ -60,7 +60,8 @@ const nextConfig = {
   // Enable experimental features for better performance
   experimental: {
     optimizePackageImports: ['@/components', '@/lib'],
-    turbo: {
+    // Next.js 15 uses `turbopack` key (not `turbo`)
+    turbopack: {
       rules: {
         '*.svg': {
           loaders: ['@svgr/webpack'],
@@ -86,7 +87,29 @@ const nextConfig = {
         },
       },
     };
-    
+
+    // SVG rule fallback for webpack (so both Turbopack and webpack builds work)
+    // This allows importing SVGs as React components: `import Logo from "./logo.svg"`
+    // and falls back to url/file loader for other cases
+    config.module.rules.push({
+      test: /\.svg$/,
+      oneOf: [
+        {
+          issuer: /\.[jt]sx?$/,
+          use: [
+            {
+              loader: require.resolve('@svgr/webpack'),
+              options: { svgo: true },
+            },
+          ],
+        },
+        {
+          type: 'asset',
+          parser: { dataUrlCondition: { maxSize: 8 * 1024 } }, // url-loader style
+        },
+      ],
+    });
+
     return config;
   },
   

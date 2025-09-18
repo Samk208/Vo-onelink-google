@@ -51,8 +51,9 @@ const SAMPLE_PASSWORD = (() => {
   return `SeEd_${base}`
 })()
 
-if (process.env.NODE_ENV !== 'production') {
-  console.log(`🔐 SAMPLE_PASSWORD in use: ${SAMPLE_PASSWORD}`)
+// Do not log secrets. For local debugging, enable SAFE_DEBUG_SEED to emit a non-sensitive notice only.
+if (process.env.NODE_ENV !== 'production' && process.env.SAFE_DEBUG_SEED === 'true') {
+  console.log('🔐 Sample password is set (hidden).')
 }
 
 async function ensureUserByEmail(email, role, name) {
