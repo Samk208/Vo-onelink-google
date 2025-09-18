@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { ProductImage } from "@/components/ui/product-image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -189,11 +190,13 @@ export default function ShopsPage() {
   const ShopCard = ({ shop }: { shop: typeof mockShops[0] }) => (
     <Card className="group overflow-hidden border-0 shadow-sm hover:shadow-lg transition-all duration-300">
       <div className="relative h-32 overflow-hidden">
-        <Image
+        <ProductImage
           src={shop.banner || "/placeholder.svg"}
           alt={`${shop.name}'s shop banner`}
           fill
           className="object-cover group-hover:scale-105 transition-transform duration-300"
+          containerClassName="h-32"
+          fallbackSrc="/placeholder.svg"
         />
         <div className="absolute top-2 left-2 flex flex-wrap gap-1">
           {shop.badges.map((badge) => (
@@ -217,12 +220,14 @@ export default function ShopsPage() {
       <CardContent className="p-4">
         <div className="flex items-start gap-3 mb-3">
           <div className="relative">
-            <Image
+            <ProductImage
               src={shop.avatar || "/placeholder.svg"}
               alt={shop.name}
               width={48}
               height={48}
               className="rounded-full border-2 border-white shadow-sm"
+              showLoadingState={false}
+              fallbackSrc="/placeholder-user.jpg"
             />
             {shop.verified && (
               <div className="absolute -bottom-1 -right-1 bg-indigo-600 rounded-full p-1">
