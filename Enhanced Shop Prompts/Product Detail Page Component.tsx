@@ -132,18 +132,18 @@ function ProductInfo({ product }: { product: ProductWithShop }) {
         <span className="text-sm text-gray-500">(4.8) • 124 reviews</span>
       </div>
       
-      {/* Price */}
+      {/* Price - NOTE: Prices stored as DECIMAL dollars, not cents */}
       <div className="flex items-center space-x-3">
         <span className="text-3xl font-bold text-gray-900">
-          ${(effectivePrice / 100).toFixed(2)}
+          ${effectivePrice.toFixed(2)}
         </span>
         {hasDiscount && (
           <>
             <span className="text-lg text-gray-500 line-through">
-              ${(product.price / 100).toFixed(2)}
+              ${product.price.toFixed(2)}
             </span>
             <Badge variant="destructive">
-              Save ${((product.price - effectivePrice) / 100).toFixed(2)}
+              Save ${(product.price - effectivePrice).toFixed(2)}
             </Badge>
           </>
         )}

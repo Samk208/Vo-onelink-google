@@ -41,6 +41,33 @@ interface ProductWithShop {
   }
 }
 
+// TypeScript interface for Supabase query result
+interface InfluencerShopProductQuery {
+  custom_title?: string | null
+  sale_price?: number | null
+  products?: {
+    id: string
+    title: string
+    description?: string | null
+    price: number
+    images?: string[] | null
+    stock_count?: number | null
+    in_stock?: boolean | null
+    category?: string | null
+    commission?: number | null
+  } | null
+  shops?: {
+    id: string
+    handle: string
+    name: string
+    description?: string | null
+    influencer: {
+      name: string
+      avatar?: string | null
+    }
+  } | null
+}
+
 function ProductImageGallery({ images, productTitle }: { images: string[]; productTitle: string }) {
   const mainImage = images?.[0] || "/placeholder-product.jpg"
   return (
@@ -220,7 +247,7 @@ export async function generateMetadata({ params }: ProductDetailPageProps): Prom
     return { title: 'Product | One-Link' }
   }
 
-  // Fetch product linkage and product
+  // Fetch product linkage and product with proper typing
   const { data: link } = await supabase
     .from('influencer_shop_products')
     .select(`
@@ -236,16 +263,15 @@ export async function generateMetadata({ params }: ProductDetailPageProps): Prom
     `)
     .eq('influencer_id', shop.influencer_id)
     .eq('product_id', id)
-    .maybeSingle()
+    .maybeSingle() as { data: InfluencerShopProductQuery | null }
 
-  // Some typed clients infer nested selects as arrays; normalize to object
-  const nestedProd: any = Array.isArray((link as any)?.products)
-    ? (link as any).products[0]
-    : (link as any)?.products
-  const productTitle = (link as any)?.custom_title || nestedProd?.title || 'Product'
-  const description = nestedProd?.description || ''
-  const image = Array.isArray(nestedProd?.images) && nestedProd.images.length > 0
-    ? nestedProd.images[0]
+  // Type-safe property access with null checks
+  const productInfo = link?.products
+  const productTitle = link?.custom_title || productInfo?.title || 'Product'
+  const description = productInfo?.description || ''
+  const images = productInfo?.images
+  const image = Array.isArray(images) && images.length > 0
+    ? images[0]
     : '/placeholder-product.png'
 
   return {
@@ -291,7 +317,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
     .eq('id', shop.influencer_id)
     .maybeSingle()
 
-  // 3) Fetch product link for this influencer and product id
+  // 3) Fetch product link for this influencer and product id with proper typing
   const { data: link, error: linkError } = await supabase
     .from('influencer_shop_products')
     .select(`
@@ -311,26 +337,27 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
     `)
     .eq('influencer_id', shop.influencer_id)
     .eq('product_id', id)
-    .maybeSingle()
+    .maybeSingle() as { data: InfluencerShopProductQuery | null, error: any }
 
   if (linkError || !link || !link.products) {
     notFound()
   }
 
-  const nested = Array.isArray((link as any).products) ? (link as any).products[0] : (link as any).products
+  // Type-safe access to nested product data
+  const productInfo = link.products
 
   const product: ProductWithShop = {
-    id: nested.id,
-    title: nested.title,
-    description: nested.description,
-    price: Number(nested.price ?? 0),
-    images: Array.isArray(nested.images) ? nested.images : [],
-    stock_count: nested.stock_count ?? 0,
-    in_stock: !!nested.in_stock,
-    category: nested.category ?? 'general',
-    commission: typeof nested.commission === 'number' ? nested.commission : undefined,
-    custom_title: (link as any).custom_title ?? undefined,
-    sale_price: typeof (link as any).sale_price === 'number' ? (link as any).sale_price : undefined,
+    id: productInfo.id,
+    title: productInfo.title,
+    description: productInfo.description ?? '',
+    price: Number(productInfo.price ?? 0),
+    images: Array.isArray(productInfo.images) ? productInfo.images : [],
+    stock_count: productInfo.stock_count ?? 0,
+    in_stock: !!productInfo.in_stock,
+    category: productInfo.category ?? 'general',
+    commission: typeof productInfo.commission === 'number' ? productInfo.commission : undefined,
+    custom_title: link.custom_title ?? undefined,
+    sale_price: typeof link.sale_price === 'number' ? link.sale_price : undefined,
     shop: {
       id: shop.id,
       handle: shop.handle,

@@ -47,16 +47,18 @@ ALTER TABLE public.profiles
     FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 -- STEP 3: Create trigger to auto-populate profiles when users sign up
--- This is the official Supabase pattern from the docs
+-- This is the official Supabase pattern from the docs with conflict handling
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
+  -- Use ON CONFLICT to prevent duplicate key errors if profile already exists
   INSERT INTO public.profiles (id, name, role)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'name', NEW.raw_user_meta_data->>'full_name', 'User'),
     'customer'
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
