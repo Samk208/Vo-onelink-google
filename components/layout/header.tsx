@@ -99,6 +99,8 @@ const LogoutIcon = () => (
 
 const navigation = [
   { name: "Shop", href: "/shop" },
+  // Direct link to an influencer shop so it's always visible in the header
+  { name: "Influencer Shop", href: "/shop/example-handle" },
   { name: "For Influencers", href: "/influencers" },
   { name: "For Brands", href: "/brands" },
   { name: "Pricing", href: "/pricing" },

@@ -1,4 +1,5 @@
 import { Suspense } from "react"
+import { headers } from "next/headers"
 import { notFound } from "next/navigation"
 import { InfluencerShopClient } from "./InfluencerShopClient"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -9,9 +10,24 @@ interface PageProps {
 
 // Fetch influencer shop data from our API route
 async function fetchShopData(handle: string) {
-  // Build endpoint using server-only env if provided; fall back to relative path
-  const base = process.env.SHOP_SERVICE_URL ?? process.env.BASE_URL ?? ''
-  const endpoint = base ? `${base}/api/shop/${handle}` : `/api/shop/${handle}`
+  // Build an absolute endpoint for server-side fetch
+  // Priority: explicit service URL env -> derive from incoming request headers -> fallback localhost
+  let base = process.env.SHOP_SERVICE_URL || process.env.BASE_URL || ""
+
+  if (!base) {
+    const h = await headers()
+    const host = h.get("x-forwarded-host") || h.get("host")
+    const proto = h.get("x-forwarded-proto") || (process.env.NODE_ENV === "production" ? "https" : "http")
+    if (host) base = `${proto}://${host}`
+  }
+
+  if (!base) {
+    // Last-resort fallback for local dev so server fetch never uses a relative URL
+    const port = process.env.PORT || "3000"
+    base = `http://localhost:${port}`
+  }
+
+  const endpoint = new URL(`/api/shop/${handle}`, base).toString()
 
   let res: Response
   try {

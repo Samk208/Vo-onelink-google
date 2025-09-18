@@ -38,6 +38,7 @@ export async function middleware(req: NextRequest) {
     '/api/auth/reset',
     '/api/auth/callback',
     '/api/products', // Public product listing
+    '/api/shop', // Public influencer shop data for SSR
   ]
 
   const { pathname } = req.nextUrl

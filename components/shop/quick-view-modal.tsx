@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -43,11 +45,14 @@ export function QuickViewModal({ product, isOpen, onClose, onAddToCart }: QuickV
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Product Images */}
           <div className="space-y-4">
-            <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-              <img
+            <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
+              <Image
                 src={images[selectedImage] || "/placeholder.jpg"}
                 alt={product.title}
-                className="w-full h-full object-cover"
+                fill
+                sizes="(max-width: 768px) 90vw, 50vw"
+                className="object-cover"
+                priority
               />
             </div>
             
@@ -62,11 +67,15 @@ export function QuickViewModal({ product, isOpen, onClose, onAddToCart }: QuickV
                       selectedImage === index ? "border-blue-500" : "border-gray-200"
                     )}
                   >
-                    <img
-                      src={image}
-                      alt={`${product.title} ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
+                    <span className="relative block w-16 h-16">
+                      <Image
+                        src={image}
+                        alt={`${product.title} ${index + 1}`}
+                        fill
+                        sizes="64px"
+                        className="object-cover"
+                      />
+                    </span>
                   </button>
                 ))}
               </div>
