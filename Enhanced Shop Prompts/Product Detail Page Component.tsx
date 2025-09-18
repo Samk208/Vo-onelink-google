@@ -278,27 +278,32 @@ export default async function ProductDetailPage({ params }: PageProps) {
     notFound();
   }
   
-  // Transform data structure
+  // Transform data structure with defensive null checks
+  // SAFETY: Guard against missing nested properties to prevent runtime errors
+  const productInfo = product?.products || {};
+  const shopInfo = product?.shops || {};
+  const profileInfo = shopInfo?.profiles || {};
+  
   const productData: ProductWithShop = {
-    id: product.products.id,
-    name: product.products.name,
-    description: product.products.description,
-    price: product.products.price,
-    images: product.products.images || [],
-    stock_count: product.products.stock_count,
-    in_stock: product.products.in_stock,
-    category: product.products.category,
-    commission: product.products.commission,
-    custom_title: product.custom_title,
-    sale_price: product.sale_price,
+    id: productInfo.id ?? '',
+    name: productInfo.name ?? 'Untitled Product',
+    description: productInfo.description ?? '',
+    price: productInfo.price ?? 0,
+    images: Array.isArray(productInfo.images) ? productInfo.images : [],
+    stock_count: productInfo.stock_count ?? 0,
+    in_stock: productInfo.in_stock ?? false,
+    category: productInfo.category ?? 'general',
+    commission: productInfo.commission ?? 0,
+    custom_title: product?.custom_title ?? '',
+    sale_price: product?.sale_price ?? null,
     shop: {
-      id: product.shops.id,
-      handle: product.shops.handle,
-      name: product.shops.name,
-      description: product.shops.description,
+      id: shopInfo.id ?? '',
+      handle: shopInfo.handle ?? 'unknown',
+      name: shopInfo.name ?? 'Unknown Shop',
+      description: shopInfo.description ?? '',
       influencer: {
-        display_name: product.shops.profiles.display_name,
-        avatar_url: product.shops.profiles.avatar_url,
+        display_name: profileInfo.display_name ?? 'Unknown Influencer',
+        avatar_url: profileInfo.avatar_url ?? '',
       },
     },
   };

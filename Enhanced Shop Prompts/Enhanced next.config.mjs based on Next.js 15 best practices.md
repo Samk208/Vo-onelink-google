@@ -21,9 +21,11 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
-      {
+      // SECURITY FIX: Use specific Supabase project hostname instead of wildcard
+      // Derive hostname from NEXT_PUBLIC_SUPABASE_URL environment variable
+      process.env.NEXT_PUBLIC_SUPABASE_URL && {
         protocol: 'https',
-        hostname: '*.supabase.co',
+        hostname: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname,
         port: '',
         pathname: '/storage/v1/object/public/**',
       },
@@ -39,7 +41,7 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       }
-    ],
+    ].filter(Boolean), // Remove null entries when env var is not set
     
     // Specify supported image formats
     formats: ['image/webp', 'image/avif'],

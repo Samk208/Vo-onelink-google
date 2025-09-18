@@ -37,6 +37,31 @@ function ok(m) { console.log(`✅ ${m}`) }
 function info(m) { console.log(`ℹ️  ${m}`) }
 function fail(m, e) { console.error(`❌ ${m}`, e?.message || e || '') }
 
+// ⚠️  CRITICAL SECURITY WARNING ⚠️
+// This script is for DEVELOPMENT/TESTING ONLY and must NEVER be run in production!
+// It creates users with predictable/test passwords which is a severe security risk.
+//
+// PRODUCTION SAFETY CHECKS:
+if (process.env.NODE_ENV === 'production') {
+  console.error('❌ SECURITY: This script is FORBIDDEN in production environment!')
+  console.error('   Reason: Creates users with test passwords (SAMPLE_PASSWORD env var)')
+  console.error('   This would create a critical security vulnerability in production.')
+  console.error('   Set NODE_ENV to "development" or "test" to run this script.')
+  process.exit(1)
+}
+
+if (!process.env.ALLOW_DEV_SEEDING && process.env.NODE_ENV !== 'development') {
+  console.error('❌ SECURITY: Development seeding not explicitly allowed')
+  console.error('   Set ALLOW_DEV_SEEDING=true to enable (development/testing only)')
+  console.error('   WARNING: Never set this in production - it creates test users!')
+  process.exit(1)
+}
+
+console.log('⚠️  WARNING: This script creates users with test passwords')
+console.log('⚠️  Password source: SAMPLE_PASSWORD environment variable')
+console.log('⚠️  Environment:', process.env.NODE_ENV || 'development')
+console.log('⚠️  Only use in development/testing environments!')
+
 // Determine sample user password from env or generate a secure fallback
 const SAMPLE_PASSWORD = (() => {
   if (process.env.SAMPLE_PASSWORD && process.env.SAMPLE_PASSWORD.length >= 12) {

@@ -161,9 +161,49 @@ async function seedEnhancedProducts() {
       return;
     }
     
-    // Clear existing products
-    await supabase.from('influencer_shop_products').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    // SAFETY CHECKS: Prevent accidental production data loss
+    // This script is for DEVELOPMENT/TESTING ONLY
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PRODUCTION_SEEDING !== 'true') {
+      console.error('❌ SAFETY: Refusing to run in production environment');
+      console.error('   Set ALLOW_PRODUCTION_SEEDING=true to override (NOT RECOMMENDED)');
+      return;
+    }
+    
+    if (process.env.ALLOW_SEEDING !== 'true') {
+      console.error('❌ SAFETY: Seeding not explicitly enabled');
+      console.error('   Set ALLOW_SEEDING=true to enable data seeding');
+      return;
+    }
+    
+    console.log('⚠️  AUDIT: Data seeding initiated by:', process.env.USER || process.env.USERNAME || 'unknown');
+    console.log('⚠️  AUDIT: Environment:', process.env.NODE_ENV || 'development');
+    console.log('⚠️  AUDIT: Timestamp:', new Date().toISOString());
+    
+    // Use transaction for atomic operations with rollback capability
+    const { data, error: transactionError } = await supabase.rpc('begin_transaction');
+    
+    try {
+      // Clear existing products with safety constraints
+      // Only delete test/development data (products created in last 24 hours or with test SKUs)
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      
+      console.log('🗑️  Clearing existing test products...');
+      
+      // Delete influencer_shop_products first (foreign key constraint)
+      const { error: deleteLinksError } = await supabase
+        .from('influencer_shop_products')
+        .delete()
+        .or(`created_at.gte.${twentyFourHoursAgo},products.sku.like.SEED-%,products.sku.like.TEST-%`);
+      
+      if (deleteLinksError) throw deleteLinksError;
+      
+      // Delete products with safety constraints
+      const { error: deleteProductsError } = await supabase
+        .from('products')
+        .delete()
+        .or(`created_at.gte.${twentyFourHoursAgo},sku.like.SEED-%,sku.like.TEST-%`);
+      
+      if (deleteProductsError) throw deleteProductsError;
     
     console.log('✅ Cleared existing products');
     
@@ -234,11 +274,31 @@ async function seedEnhancedProducts() {
     console.log(`🔗 Linked ${productsToLink.length} products to influencer shop`);
     console.log('\n🌐 Test URLs:');
     console.log('  - Main catalog: http://localhost:3000/shop');
-    console.log('  - Influencer shop: http://localhost:3000/shop/example-handle');
-    console.log('  - Main influencer shop: http://localhost:3000/shop/main');
+    console.log('  - Influencer shop: http://localhost:3000/shop/influencer-shop');
+    console.log('  - Main influencer shop: http://localhost:3000/shop/main-influencer-shop');
     
+    // Commit transaction
+    await supabase.rpc('commit_transaction');
+    console.log('✅ Transaction committed successfully');
+    
+  } catch (transactionError) {
+    console.error('❌ AUDIT: Seeding transaction failed:', transactionError);
+    console.error('⚠️  AUDIT: Rolling back changes...');
+    
+    // Rollback transaction on error
+    try {
+      await supabase.rpc('rollback_transaction');
+      console.log('✅ Transaction rolled back successfully');
+    } catch (rollbackError) {
+      console.error('❌ CRITICAL: Rollback failed:', rollbackError);
+    }
+    
+    throw transactionError;
+  }
+  
   } catch (error) {
     console.error('❌ Seeding failed:', error);
+    console.error('⚠️  AUDIT: Script execution failed at:', new Date().toISOString());
   }
 }
 
