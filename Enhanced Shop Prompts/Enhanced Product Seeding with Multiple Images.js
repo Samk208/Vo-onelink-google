@@ -137,26 +137,24 @@ async function seedEnhancedProducts() {
   console.log('=== Seeding Enhanced Products ===');
   
   try {
-    // Get supplier user
+    // Get supplier user (email exists in user_admin_view, not in profiles)
     const { data: supplier, error: supplierError } = await supabase
-      .from('profiles')
-      .select('id')
+      .from('user_admin_view')
+      .select('id, role')
       .eq('email', 'supplier@example.com')
-      .eq('role', 'supplier')
-      .single();
+      .maybeSingle();
       
     if (supplierError || !supplier) {
       console.error('❌ Supplier not found. Run base seed script first.');
       return;
     }
     
-    // Get influencer user
+    // Get influencer user via user_admin_view
     const { data: influencer, error: influencerError } = await supabase
-      .from('profiles')
-      .select('id')
+      .from('user_admin_view')
+      .select('id, role')
       .eq('email', 'influencer@example.com')
-      .eq('role', 'influencer')
-      .single();
+      .maybeSingle();
       
     if (influencerError || !influencer) {
       console.error('❌ Influencer not found. Run base seed script first.');
@@ -169,14 +167,27 @@ async function seedEnhancedProducts() {
     
     console.log('✅ Cleared existing products');
     
-    // Insert enhanced products
+    // Insert enhanced products (convert cents -> dollars for DECIMAL(10,2))
     for (const productData of productsData) {
+      const toDollars = (cents) => Number(((Number(cents) || 0) / 100).toFixed(2))
+      const payload = {
+        sku: productData.sku,
+        title: productData.name,
+        description: productData.description,
+        price: toDollars(productData.price),
+        original_price: productData.originalCents ? toDollars(productData.originalCents) : undefined,
+        commission: productData.commission,
+        images: productData.images,
+        category: productData.category,
+        region: productData.region,
+        in_stock: productData.in_stock,
+        stock_count: productData.stock_count,
+        active: productData.active,
+        supplier_id: supplier.id,
+      }
       const { error: productError } = await supabase
         .from('products')
-        .insert({
-          ...productData,
-          supplier_id: supplier.id
-        });
+        .insert(payload);
         
       if (productError) {
         console.error(`❌ Error creating product ${productData.sku}:`, productError);
@@ -205,7 +216,8 @@ async function seedEnhancedProducts() {
         .insert({
           influencer_id: influencer.id,
           product_id: product.id,
-          sale_price: index === 0 ? 27900 : null, // Custom price for first product
+          // Use dollars (DECIMAL) rather than cents
+          sale_price: index === 0 ? 279.00 : null,
           custom_title: index === 1 ? `${product.name} - Influencer Special` : null,
           is_featured: index === 0
         });
