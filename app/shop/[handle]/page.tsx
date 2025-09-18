@@ -7,140 +7,46 @@ interface PageProps {
   params: Promise<{ handle: string }>
 }
 
-// Mock data - in real app, fetch from API based on handle
-const getInfluencerData = async (handle: string) => {
-  const mockInfluencers = {
-    "sarah_style": {
-      handle: "sarah_style",
-      name: "Sarah Chen",
-      bio: "Fashion & lifestyle creator sharing my favorite finds ✨ Sustainable fashion advocate 🌱",
-      avatar: "/fashion-influencer-avatar.png",
-      banner: "/fashion-banner.png",
-      followers: "125K",
-      verified: true,
-      socialLinks: {
-        instagram: "https://instagram.com/sarah_style",
-        twitter: "https://twitter.com/sarah_style",
-        youtube: "https://youtube.com/@sarahstyle",
-      },
-    },
-    "tech_maven": {
-      handle: "tech_maven",
-      name: "Alex Rodriguez",
-      bio: "Tech reviewer & gadget enthusiast 🔥 Latest reviews and unboxings 📱",
-      avatar: "/tech-influencer-avatar.png",
-      banner: "/tech-banner.png",
-      followers: "89K",
-      verified: true,
-      socialLinks: {
-        instagram: "https://instagram.com/tech_maven",
-        twitter: "https://twitter.com/tech_maven",
-        youtube: "https://youtube.com/@techmaven",
-      },
-    },
-    "wellness_guru": {
-      handle: "wellness_guru",
-      name: "Maya Patel",
-      bio: "Wellness & fitness journey 🧘‍♀️ Helping you live your best life 💪",
-      avatar: "/wellness-influencer-avatar.png",
-      banner: "/wellness-banner.png",
-      followers: "156K",
-      verified: true,
-      socialLinks: {
-        instagram: "https://instagram.com/wellness_guru",
-        twitter: "https://twitter.com/wellness_guru",
-        youtube: "https://youtube.com/@wellnessguru",
-      },
-    },
+// Fetch influencer shop data from our API route
+async function fetchShopData(handle: string) {
+  // Relative fetch works on the server in Next.js App Router
+  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? ''}/api/shop/${handle}`, {
+    // Always fetch fresh shop data
+    cache: 'no-store',
+  }).catch(() => null)
+
+  if (!res || !res.ok) return null
+  const json = await res.json()
+  if (!json?.ok || !json?.data) return null
+
+  // Map API response to the client component props
+  const influencer = {
+    handle: json.data.influencer.handle,
+    name: json.data.influencer.name,
+    bio: json.data.influencer.bio ?? '',
+    avatar: json.data.influencer.avatar ?? '/brand-manager-avatar.png',
+    banner: json.data.influencer.banner ?? '/fashion-banner.png',
+    followers: json.data.influencer.followers ?? '0',
+    verified: !!json.data.influencer.verified,
+    socialLinks: json.data.influencer.socialLinks ?? {},
   }
 
-  return mockInfluencers[handle as keyof typeof mockInfluencers] || null
-}
+  const products = (json.data.products ?? []).map((p: any) => ({
+    id: String(p.id),
+    title: p.customTitle || p.title || 'Untitled',
+    price: Number(p.price ?? 0),
+    originalPrice: typeof p.originalPrice === 'number' ? p.originalPrice : undefined,
+    image: p.image || '/placeholder-product.png',
+    badges: Array.isArray(p.badges) ? p.badges : [],
+    category: p.category || 'General',
+    region: Array.isArray(p.region) ? (p.region[0] || 'Global') : (p.region || 'Global'),
+    inStock: !!p.inStock,
+    stockCount: Number(p.stockCount ?? 0),
+    rating: Number(p.rating ?? 4.5),
+    reviews: Number(p.reviews ?? 0),
+  }))
 
-const getMockProducts = (handle: string) => {
-  return [
-    {
-      id: "1",
-      title: "Sustainable Cotton Tee",
-      price: 45,
-      originalPrice: 60,
-      image: "/cotton-tee.png",
-      badges: ["New", "Eco-Friendly"],
-      category: "Clothing",
-      region: "Global",
-      inStock: true,
-      stockCount: 15,
-      rating: 4.8,
-      reviews: 124,
-    },
-    {
-      id: "2",
-      title: "Minimalist Gold Necklace",
-      price: 89,
-      image: "/gold-necklace.png",
-      badges: ["Hot"],
-      category: "Jewelry",
-      region: "KR",
-      inStock: true,
-      stockCount: 3,
-      rating: 4.9,
-      reviews: 67,
-    },
-    {
-      id: "3",
-      title: "Organic Skincare Set",
-      price: 120,
-      originalPrice: 150,
-      image: "/skincare-set.png",
-      badges: ["Bestseller"],
-      category: "Beauty",
-      region: "JP",
-      inStock: true,
-      stockCount: 8,
-      rating: 4.7,
-      reviews: 203,
-    },
-    {
-      id: "4",
-      title: "Vintage Denim Jacket",
-      price: 95,
-      image: "/classic-denim-jacket.png",
-      badges: ["Limited"],
-      category: "Clothing",
-      region: "Global",
-      inStock: true,
-      stockCount: 25,
-      rating: 4.6,
-      reviews: 89,
-    },
-    {
-      id: "5",
-      title: "Handcrafted Ceramic Mug",
-      price: 28,
-      image: "/ceramic-mug.png",
-      badges: ["New"],
-      category: "Home",
-      region: "CN",
-      inStock: true,
-      stockCount: 12,
-      rating: 4.5,
-      reviews: 45,
-    },
-    {
-      id: "6",
-      title: "Wireless Earbuds Pro",
-      price: 199,
-      originalPrice: 249,
-      image: "/wireless-earbuds.png",
-      badges: ["Hot", "Tech"],
-      category: "Electronics",
-      region: "Global",
-      inStock: true,
-      stockCount: 7,
-      rating: 4.8,
-      reviews: 156,
-    },
-  ]
+  return { influencer, products }
 }
 
 function InfluencerShopSkeleton() {
@@ -186,18 +92,14 @@ function InfluencerShopSkeleton() {
 export default async function InfluencerShopPage({ params }: PageProps) {
   const { handle } = await params
   
-  const influencer = await getInfluencerData(handle)
-  const products = getMockProducts(handle)
-
-  if (!influencer) {
-    notFound()
-  }
+  const data = await fetchShopData(handle)
+  if (!data) return notFound()
 
   return (
     <Suspense fallback={<InfluencerShopSkeleton />}>
-      <InfluencerShopClient 
-        influencer={influencer}
-        products={products}
+      <InfluencerShopClient
+        influencer={data.influencer}
+        products={data.products}
         handle={handle}
       />
     </Suspense>
